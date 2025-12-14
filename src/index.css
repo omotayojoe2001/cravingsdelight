@@ -1,0 +1,240 @@
+
+
+@import "@fontsource/playfair-display/400.css";
+@import "@fontsource/playfair-display/500.css";
+@import "@fontsource/playfair-display/600.css";
+@import "@fontsource/playfair-display/700.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Clean white base */
+    --background: 0 0% 100%;
+    --foreground: 20 25% 15%;
+
+    /* Card surfaces - white */
+    --card: 0 0% 100%;
+    --card-foreground: 20 25% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 20 25% 15%;
+
+    /* Wine - Primary brand color */
+    --primary: 350 55% 30%;
+    --primary-foreground: 40 30% 97%;
+
+    /* Golden Yellow - Secondary accent */
+    --secondary: 42 65% 55%;
+    --secondary-foreground: 20 25% 15%;
+
+    /* Muted tones */
+    --muted: 0 0% 96%;
+    --muted-foreground: 20 15% 45%;
+
+    /* Accent - Warm yellow glow */
+    --accent: 42 75% 60%;
+    --accent-foreground: 20 25% 15%;
+
+    /* Destructive */
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Borders & inputs */
+    --border: 0 0% 90%;
+    --input: 0 0% 96%;
+    --ring: 350 55% 30%;
+
+    --radius: 0.75rem;
+
+    /* Custom brand tokens */
+    --wine: 350 55% 30%;
+    --wine-light: 350 45% 45%;
+    --wine-dark: 350 60% 22%;
+    --golden: 42 65% 55%;
+    --golden-light: 45 70% 70%;
+    --golden-dark: 40 60% 45%;
+    --smooth: 0 0% 100%;
+    --smooth-dark: 0 0% 98%;
+    --cream: 0 0% 100%;
+
+    /* Gradients */
+    --gradient-hero: linear-gradient(135deg, hsl(var(--wine)) 0%, hsl(var(--wine-dark)) 100%);
+    --gradient-golden: linear-gradient(135deg, hsl(var(--golden)) 0%, hsl(var(--golden-dark)) 100%);
+    --gradient-warm: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(0 0% 100%) 100%);
+
+    /* Shadows */
+    --shadow-soft: 0 4px 20px -4px hsl(var(--wine) / 0.15);
+    --shadow-golden: 0 4px 30px -8px hsl(var(--golden) / 0.4);
+    --shadow-elevated: 0 10px 40px -10px hsl(var(--foreground) / 0.15);
+
+    /* Sidebar (keeping defaults) */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 20 25% 15%;
+    --sidebar-primary: 350 55% 30%;
+    --sidebar-primary-foreground: 40 30% 97%;
+    --sidebar-accent: 42 65% 55%;
+    --sidebar-accent-foreground: 20 25% 15%;
+    --sidebar-border: 0 0% 90%;
+    --sidebar-ring: 350 55% 30%;
+  }
+
+  .dark {
+    --background: 20 20% 8%;
+    --foreground: 40 20% 95%;
+
+    --card: 20 18% 12%;
+    --card-foreground: 40 20% 95%;
+
+    --popover: 20 18% 12%;
+    --popover-foreground: 40 20% 95%;
+
+    --primary: 350 50% 50%;
+    --primary-foreground: 20 20% 8%;
+
+    --secondary: 42 55% 50%;
+    --secondary-foreground: 20 20% 8%;
+
+    --muted: 20 15% 18%;
+    --muted-foreground: 40 15% 65%;
+
+    --accent: 42 60% 55%;
+    --accent-foreground: 20 20% 8%;
+
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 20 15% 20%;
+    --input: 20 15% 20%;
+    --ring: 350 50% 50%;
+
+    --wine: 350 50% 50%;
+    --wine-light: 350 45% 60%;
+    --wine-dark: 350 55% 35%;
+    --golden: 42 55% 50%;
+    --golden-light: 45 60% 65%;
+    --golden-dark: 40 50% 40%;
+    --smooth: 20 20% 8%;
+    --smooth-dark: 20 15% 12%;
+    --cream: 20 18% 15%;
+
+    --sidebar-background: 20 18% 10%;
+    --sidebar-foreground: 40 20% 95%;
+    --sidebar-primary: 350 50% 50%;
+    --sidebar-primary-foreground: 20 20% 8%;
+    --sidebar-accent: 42 55% 50%;
+    --sidebar-accent-foreground: 20 20% 8%;
+    --sidebar-border: 20 15% 18%;
+    --sidebar-ring: 350 50% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: "Inter", system-ui, sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: "Playfair Display", Georgia, serif;
+  }
+}
+
+@layer components {
+  .font-display {
+    font-family: "Playfair Display", Georgia, serif;
+  }
+
+  .font-body {
+    font-family: "Inter", system-ui, sans-serif;
+  }
+
+  .text-gradient-wine {
+    background: linear-gradient(135deg, hsl(var(--wine)) 0%, hsl(var(--wine-light)) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .text-gradient-golden {
+    background: linear-gradient(135deg, hsl(var(--golden-dark)) 0%, hsl(var(--golden)) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .bg-gradient-hero {
+    background: var(--gradient-hero);
+  }
+
+  .bg-gradient-golden {
+    background: var(--gradient-golden);
+  }
+
+  .bg-gradient-warm {
+    background: var(--gradient-warm);
+  }
+
+  .shadow-soft {
+    box-shadow: var(--shadow-soft);
+  }
+
+  .shadow-golden {
+    box-shadow: var(--shadow-golden);
+  }
+
+  .shadow-elevated {
+    box-shadow: var(--shadow-elevated);
+  }
+}
+
+@layer utilities {
+  .animate-fade-in {
+    animation: fadeIn 0.6s ease-out forwards;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.6s ease-out forwards;
+  }
+
+  .animate-scale-in {
+    animation: scaleIn 0.4s ease-out forwards;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes scaleIn {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+}

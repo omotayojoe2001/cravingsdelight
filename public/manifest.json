@@ -1,0 +1,29 @@
+{
+  "name": "Cravings Delight - Authentic African Cuisine",
+  "short_name": "Cravings Delight",
+  "description": "Order authentic African cuisine in Hull. Jollof rice, Efo Riro, Peppersoup, and more. Available in 2L & 3L bowls or full coolers. Catering services for events.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#8B0000",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/cravings delight logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/cravings delight logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["food", "restaurant", "catering"],
+  "lang": "en-GB",
+  "dir": "ltr",
+  "scope": "/",
+  "prefer_related_applications": false
+}
