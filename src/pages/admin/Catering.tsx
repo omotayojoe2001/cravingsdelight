@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import AdminLayout from '@/components/admin/AdminLayout';
-
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-
+import { Search, Filter } from 'lucide-react';
 
 interface CateringRequest {
   id: string;
@@ -31,24 +32,43 @@ interface CateringRequest {
 
 export default function Catering() {
   const [requests, setRequests] = useState<CateringRequest[]>([]);
+  const [filteredRequests, setFilteredRequests] = useState<CateringRequest[]>([]);
   const [statusFilter, setStatusFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     fetchRequests();
   }, []);
 
+  useEffect(() => {
+    filterRequests();
+  }, [requests, statusFilter, searchQuery]);
+
   async function fetchRequests() {
-    let query = supabase.from('catering_requests').select('*').order('submitted_at', { ascending: false });
-    
-    if (statusFilter !== 'all') query = query.eq('status', statusFilter);
-    
-    const { data } = await query;
+    const { data } = await supabase
+      .from('catering_requests')
+      .select('*')
+      .order('submitted_at', { ascending: false });
     if (data) setRequests(data);
   }
 
-  useEffect(() => {
-    fetchRequests();
-  }, [statusFilter]);
+  function filterRequests() {
+    let filtered = [...requests];
+    
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(req => req.status === statusFilter);
+    }
+    
+    if (searchQuery) {
+      filtered = filtered.filter(req => 
+        req.requester_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        req.requester_email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        req.event_location.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+    
+    setFilteredRequests(filtered);
+  }
 
   async function updateStatus(id: string, status: string) {
     const { error } = await supabase.from('catering_requests').update({ status }).eq('id', id);
@@ -62,146 +82,179 @@ export default function Catering() {
 
   return (
     <AdminLayout>
-      <div className="h-full max-h-screen overflow-hidden flex flex-col">
+      <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between">
           <div>
-            <h1 className="font-display text-2xl font-bold">Catering Requests</h1>
-            <p className="text-sm text-muted-foreground">{requests.length} requests</p>
+            <h1 className="text-2xl font-bold">Catering Requests</h1>
+            <p className="text-muted-foreground">{filteredRequests.length} of {requests.length} requests</p>
           </div>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-40 h-9">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="contacted">Contacted</SelectItem>
-              <SelectItem value="confirmed">Confirmed</SelectItem>
-            </SelectContent>
-          </Select>
+          
+          {/* Quick Stats */}
+          <div className="flex gap-4">
+            <div className="text-center">
+              <div className="text-lg font-bold text-green-600">
+                {requests.filter(r => r.status === 'confirmed').length}
+              </div>
+              <div className="text-xs text-muted-foreground">Confirmed</div>
+            </div>
+            <div className="text-center">
+              <div className="text-lg font-bold text-yellow-600">
+                {requests.filter(r => r.status === 'pending').length}
+              </div>
+              <div className="text-xs text-muted-foreground">Pending</div>
+            </div>
+          </div>
         </div>
 
-        {/* Requests Grid */}
-        <div className="flex-1 overflow-hidden">
-          {requests.length === 0 ? (
-            <div className="bg-card rounded-lg border p-12 text-center">
-              <h3 className="text-lg font-semibold mb-2">No catering requests yet</h3>
-              <p className="text-muted-foreground">Catering requests will appear here once submitted</p>
+        {/* Filters */}
+        <div className="bg-white border rounded-lg p-4">
+          <div className="flex gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by name, email, or location..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
             </div>
-          ) : (
-            <div className="h-full overflow-auto">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {requests.map((req) => (
-                  <div key={req.id} className="bg-card rounded-lg border p-4 hover:shadow-md transition-shadow">
-                    {/* Header */}
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <h3 className="font-medium text-sm">{req.requester_name}</h3>
-                        <p className="text-xs text-muted-foreground">{req.requester_email}</p>
-                        {req.event_type && (
-                          <Badge variant="outline" className="text-xs mt-1 bg-blue-50 text-blue-700">
-                            {req.event_type}
-                          </Badge>
-                        )}
-                        {req.selected_products && (
-                          <Badge variant="outline" className="text-xs mt-1 bg-green-50 text-green-700">
-                            {JSON.parse(req.selected_products).length} items
-                          </Badge>
-                        )}
-                        {req.product_name && (
-                          <Badge variant="outline" className="text-xs mt-1 bg-primary/10 text-primary">
-                            {req.product_name}
-                          </Badge>
-                        )}
-                      </div>
-                      <Badge variant={req.status === 'confirmed' ? 'default' : 'secondary'} className="text-xs">
-                        {req.status}
-                      </Badge>
-                    </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-48">
+                <Filter className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="in_review">In Review</SelectItem>
+                <SelectItem value="contacted">Contacted</SelectItem>
+                <SelectItem value="confirmed">Confirmed</SelectItem>
+                <SelectItem value="cancelled">Cancelled</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
 
-                    {/* Event Details */}
-                    <div className="space-y-2 mb-4">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Guests:</span>
-                        <span className="font-medium">{req.total_estimated_guests || req.number_of_guests}</span>
-                      </div>
-                      
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Date:</span>
-                        <span className="font-medium">
-                          {req.event_date ? new Date(req.event_date).toLocaleDateString() : 'TBD'}
-                        </span>
-                      </div>
-                      
-                      {req.event_time && (
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Time:</span>
-                          <span className="font-medium">{req.event_time}</span>
+        {/* Catering Requests Table - Google Sheets Style */}
+        <div className="bg-white border rounded-lg overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Request ID</TableHead>
+                <TableHead>Customer</TableHead>
+                <TableHead>Contact</TableHead>
+                <TableHead>Event Details</TableHead>
+                <TableHead>Location</TableHead>
+                <TableHead>Guests</TableHead>
+                <TableHead>Items/Budget</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredRequests.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                    No catering requests found
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredRequests.map((req) => {
+                  const selectedProducts = req.selected_products ? JSON.parse(req.selected_products) : [];
+                  return (
+                    <TableRow key={req.id}>
+                      <TableCell className="font-mono">#{req.id.slice(0, 8)}</TableCell>
+                      <TableCell>
+                        <div>
+                          <div className="font-medium">{req.requester_name}</div>
+                          {req.event_type && (
+                            <Badge variant="outline" className="text-xs mt-1">
+                              {req.event_type}
+                            </Badge>
+                          )}
                         </div>
-                      )}
-                      
-                      <div className="text-sm">
-                        <span className="text-muted-foreground">Location:</span>
-                        <p className="font-medium text-xs mt-1 line-clamp-2">{req.event_location}</p>
-                      </div>
-                      
-                      <div className="text-sm">
-                        <span className="text-muted-foreground">Phone:</span>
-                        <p className="font-medium text-xs mt-1">{req.requester_phone}</p>
-                      </div>
-                      
-                      {req.budget_range && (
+                      </TableCell>
+                      <TableCell>
                         <div className="text-sm">
-                          <span className="text-muted-foreground">Budget:</span>
-                          <p className="font-medium text-xs mt-1">{req.budget_range}</p>
+                          <div>{req.requester_email}</div>
+                          <div className="text-muted-foreground">{req.requester_phone}</div>
                         </div>
-                      )}
-                      
-                      {req.requirements && (
+                      </TableCell>
+                      <TableCell>
                         <div className="text-sm">
-                          <span className="text-muted-foreground">Requirements:</span>
-                          <p className="text-xs mt-1 line-clamp-2">{req.requirements}</p>
-                        </div>
-                      )}
-                      
-                      {req.selected_products && (
-                        <div className="text-sm">
-                          <span className="text-muted-foreground">Selected Items:</span>
-                          <div className="text-xs mt-1 space-y-1">
-                            {JSON.parse(req.selected_products).slice(0, 3).map((item: any, idx: number) => (
-                              <div key={idx} className="flex justify-between">
-                                <span>{item.name}</span>
-                                <span>{item.quantity}x {item.size}</span>
-                              </div>
-                            ))}
-                            {JSON.parse(req.selected_products).length > 3 && (
-                              <p className="text-muted-foreground">+{JSON.parse(req.selected_products).length - 3} more items</p>
-                            )}
+                          <div className="font-medium">
+                            {req.event_date ? new Date(req.event_date).toLocaleDateString('en-GB') : 'TBD'}
                           </div>
+                          {req.event_time && (
+                            <div className="text-muted-foreground">{req.event_time}</div>
+                          )}
                         </div>
-                      )}
-                    </div>
-
-                    {/* Actions */}
-                    <Select value={req.status} onValueChange={(val) => updateStatus(req.id, val)}>
-                      <SelectTrigger className="w-full h-8 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="in_review">In Review</SelectItem>
-                        <SelectItem value="processing">Processing</SelectItem>
-                        <SelectItem value="contacted">Contacted</SelectItem>
-                        <SelectItem value="confirmed">Confirmed</SelectItem>
-                        <SelectItem value="cancelled">Cancelled</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-sm max-w-xs truncate">{req.event_location}</div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="font-medium">{req.total_estimated_guests || req.number_of_guests}</div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-sm">
+                          {selectedProducts.length > 0 ? (
+                            <div>
+                              <div className="font-medium">{selectedProducts.length} items</div>
+                              <div className="text-muted-foreground">
+                                {selectedProducts.slice(0, 2).map((item: any) => item.name).join(', ')}
+                                {selectedProducts.length > 2 && '...'}
+                              </div>
+                            </div>
+                          ) : req.product_name ? (
+                            <Badge variant="outline">{req.product_name}</Badge>
+                          ) : (
+                            <div>
+                              {req.budget_range && (
+                                <div className="text-muted-foreground">{req.budget_range}</div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={
+                          req.status === 'confirmed' ? 'bg-green-100 text-green-800' :
+                          req.status === 'contacted' ? 'bg-blue-100 text-blue-800' :
+                          req.status === 'in_review' ? 'bg-yellow-100 text-yellow-800' :
+                          req.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                          'bg-gray-100 text-gray-800'
+                        }>
+                          {req.status.replace('_', ' ')}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-sm">
+                          {new Date(req.submitted_at).toLocaleDateString('en-GB')}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Select value={req.status} onValueChange={(val) => updateStatus(req.id, val)}>
+                          <SelectTrigger className="w-32 h-8">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="pending">Pending</SelectItem>
+                            <SelectItem value="in_review">In Review</SelectItem>
+                            <SelectItem value="contacted">Contacted</SelectItem>
+                            <SelectItem value="confirmed">Confirmed</SelectItem>
+                            <SelectItem value="cancelled">Cancelled</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
         </div>
       </div>
     </AdminLayout>

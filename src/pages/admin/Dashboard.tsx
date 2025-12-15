@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ShoppingBag, Users, Star, Calendar, TrendingUp, DollarSign } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AdminLayout from '@/components/admin/AdminLayout';
 
 interface RecentOrder {
@@ -29,14 +28,6 @@ export default function Dashboard() {
     fetchStats();
     fetchRecentOrders();
   }, [dateFilter]);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      fetchStats();
-      fetchRecentOrders();
-    }, 10000); // Refresh every 10 seconds
-    return () => clearInterval(interval);
-  }, []);
 
   async function fetchStats() {
     const daysAgo = new Date();
@@ -71,117 +62,127 @@ export default function Dashboard() {
       .from('orders')
       .select('id, customer_name, total_amount, order_status, created_at')
       .order('created_at', { ascending: false })
-      .limit(5);
+      .limit(10);
     
     if (data) setRecentOrders(data);
   }
 
   return (
     <AdminLayout>
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="font-display text-3xl font-bold">Dashboard</h1>
-        <Select value={dateFilter} onValueChange={setDateFilter}>
-          <SelectTrigger className="w-40">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="7">Last 7 days</SelectItem>
-            <SelectItem value="30">Last 30 days</SelectItem>
-            <SelectItem value="90">Last 90 days</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold">Dashboard</h1>
+          <Select value={dateFilter} onValueChange={setDateFilter}>
+            <SelectTrigger className="w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="7">Last 7 days</SelectItem>
+              <SelectItem value="30">Last 30 days</SelectItem>
+              <SelectItem value="90">Last 90 days</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-            <DollarSign className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">${stats.totalRevenue.toFixed(2)}</div>
-            <p className="text-xs text-muted-foreground mt-1">All time</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
-            <ShoppingBag className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalOrders}</div>
-            <p className="text-xs text-muted-foreground mt-1">{stats.weekOrders} in selected period</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Today's Views</CardTitle>
-            <TrendingUp className="h-4 w-4 text-purple-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.todayViews}</div>
-            <p className="text-xs text-muted-foreground mt-1">Page views</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Pending Catering</CardTitle>
-            <Calendar className="h-4 w-4 text-orange-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.pendingCatering}</div>
-            <p className="text-xs text-muted-foreground mt-1">Awaiting response</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Pending Reviews</CardTitle>
-            <Star className="h-4 w-4 text-yellow-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.pendingReviews}</div>
-            <p className="text-xs text-muted-foreground mt-1">Need approval</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Transactions</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {recentOrders.length === 0 ? (
-              <p className="text-center text-muted-foreground py-8">No orders yet</p>
-            ) : (
-              recentOrders.map((order) => (
-                <div key={order.id} className="flex items-center justify-between border-b pb-3">
-                  <div>
-                    <p className="font-medium">{order.customer_name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {new Date(order.created_at).toLocaleDateString()} at {new Date(order.created_at).toLocaleTimeString()}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-bold">${order.total_amount.toFixed(2)}</p>
-                    <span className={`text-xs px-2 py-1 rounded-full ${
-                      order.order_status === 'delivered' ? 'bg-green-100 text-green-800' :
-                      order.order_status === 'shipped' ? 'bg-blue-100 text-blue-800' :
-                      'bg-yellow-100 text-yellow-800'
-                    }`}>
-                      {order.order_status}
-                    </span>
-                  </div>
-                </div>
-              ))
-            )}
+        {/* Stats Table - Google Sheets Style */}
+        <div className="bg-white border rounded-lg overflow-hidden">
+          <div className="px-4 py-3 bg-gray-50 border-b">
+            <h3 className="text-lg font-medium text-gray-900">Key Metrics</h3>
           </div>
-        </CardContent>
-      </Card>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Metric</TableHead>
+                <TableHead>Value</TableHead>
+                <TableHead>Period</TableHead>
+                <TableHead>Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRow>
+                <TableCell className="font-medium">Total Revenue</TableCell>
+                <TableCell className="font-bold text-green-600">£{stats.totalRevenue.toFixed(2)}</TableCell>
+                <TableCell>All time</TableCell>
+                <TableCell><span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Active</span></TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell className="font-medium">Total Orders</TableCell>
+                <TableCell className="font-bold text-blue-600">{stats.totalOrders}</TableCell>
+                <TableCell>{stats.weekOrders} in selected period</TableCell>
+                <TableCell><span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">Tracking</span></TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell className="font-medium">Today's Views</TableCell>
+                <TableCell className="font-bold text-purple-600">{stats.todayViews}</TableCell>
+                <TableCell>Today</TableCell>
+                <TableCell><span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">Live</span></TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell className="font-medium">Pending Catering</TableCell>
+                <TableCell className="font-bold text-orange-600">{stats.pendingCatering}</TableCell>
+                <TableCell>Current</TableCell>
+                <TableCell><span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-800">Pending</span></TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell className="font-medium">Pending Reviews</TableCell>
+                <TableCell className="font-bold text-yellow-600">{stats.pendingReviews}</TableCell>
+                <TableCell>Current</TableCell>
+                <TableCell><span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">Review</span></TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </div>
+
+        {/* Recent Orders Table - Google Sheets Style */}
+        <div className="bg-white border rounded-lg overflow-hidden">
+          <div className="px-4 py-3 bg-gray-50 border-b">
+            <h3 className="text-lg font-medium text-gray-900">Recent Transactions</h3>
+          </div>
+          {recentOrders.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-gray-500">No orders yet</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Order ID</TableHead>
+                  <TableHead>Customer</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Time</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {recentOrders.map((order) => {
+                  const orderDate = new Date(order.created_at);
+                  return (
+                    <TableRow key={order.id}>
+                      <TableCell className="font-mono">#{order.id.slice(0, 8)}</TableCell>
+                      <TableCell className="font-medium">{order.customer_name}</TableCell>
+                      <TableCell className="font-bold">£{order.total_amount.toFixed(2)}</TableCell>
+                      <TableCell>
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          order.order_status === 'delivered' ? 'bg-green-100 text-green-800' :
+                          order.order_status === 'shipped' ? 'bg-blue-100 text-blue-800' :
+                          order.order_status === 'processing' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {order.order_status}
+                        </span>
+                      </TableCell>
+                      <TableCell>{orderDate.toLocaleDateString('en-GB')}</TableCell>
+                      <TableCell>{orderDate.toLocaleTimeString('en-GB', {hour: '2-digit', minute:'2-digit'})}</TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </div>
+      </div>
     </AdminLayout>
   );
 }

@@ -18,8 +18,6 @@ interface Order {
   delivery_address: string;
   delivery_city: string;
   delivery_postcode: string;
-  delivery_country: string;
-  delivery_notes: string;
   allergies: string;
   subtotal_amount: number;
   delivery_fee: number;
@@ -27,7 +25,6 @@ interface Order {
   payment_method: string;
   order_status: string;
   order_items: string;
-  payment_intent_id: string;
   created_at: string;
 }
 
@@ -49,16 +46,14 @@ export default function Orders() {
   }, [orders, searchQuery, statusFilter, sortBy]);
 
   async function fetchOrders() {
-    console.log('Fetching orders...');
     const { data, error } = await supabase
       .from('orders')
       .select('*')
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('❌ FETCH ORDERS ERROR:', error);
+      console.error('Error fetching orders:', error);
     } else {
-      console.log('✅ ORDERS FETCHED:', data?.length || 0, 'orders');
       setOrders(data || []);
     }
     setLoading(false);
@@ -105,31 +100,35 @@ export default function Orders() {
 
   return (
     <AdminLayout>
-      <div className="h-full max-h-screen overflow-hidden flex flex-col">
+      <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="font-display text-2xl font-bold">Orders</h1>
-          <div className="text-sm text-muted-foreground">
-            {filteredOrders.length} orders
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">Orders</h1>
+            <p className="text-muted-foreground">{filteredOrders.length} of {orders.length} orders</p>
+          </div>
+          <div className="text-lg font-bold">
+            Total: £{filteredOrders.reduce((sum, o) => sum + o.total_amount, 0).toFixed(2)}
           </div>
         </div>
 
-        {/* Filters - Compact */}
-        <div className="bg-card rounded-lg border p-4 mb-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+        {/* Filters */}
+        <div className="bg-white border rounded-lg p-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search..."
+                placeholder="Search by customer name or email..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 h-9"
+                className="pl-10"
               />
             </div>
             
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="h-9">
-                <SelectValue placeholder="Status" />
+              <SelectTrigger>
+                <Filter className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="All Status" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
@@ -141,101 +140,136 @@ export default function Orders() {
             </Select>
 
             <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="h-9">
-                <SelectValue placeholder="Sort" />
+              <SelectTrigger>
+                <SelectValue placeholder="Sort by" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="date_desc">Newest</SelectItem>
-                <SelectItem value="date_asc">Oldest</SelectItem>
-                <SelectItem value="amount_desc">High Amount</SelectItem>
-                <SelectItem value="amount_asc">Low Amount</SelectItem>
+                <SelectItem value="date_desc">Newest First</SelectItem>
+                <SelectItem value="date_asc">Oldest First</SelectItem>
+                <SelectItem value="amount_desc">Highest Amount</SelectItem>
+                <SelectItem value="amount_asc">Lowest Amount</SelectItem>
               </SelectContent>
             </Select>
 
-            <div className="text-xs text-muted-foreground flex items-center">
-              Total: £{filteredOrders.reduce((sum, o) => sum + o.total_amount, 0).toFixed(2)}
+            <div className="flex items-center justify-between bg-muted/50 rounded-lg p-3">
+              <div className="text-center">
+                <div className="text-lg font-bold text-green-600">
+                  {orders.filter(o => o.order_status === 'delivered').length}
+                </div>
+                <div className="text-xs text-muted-foreground">Delivered</div>
+              </div>
+              <div className="text-center">
+                <div className="text-lg font-bold text-yellow-600">
+                  {orders.filter(o => o.order_status === 'processing').length}
+                </div>
+                <div className="text-xs text-muted-foreground">Processing</div>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Orders Table - Scrollable */}
-        <div className="bg-card rounded-lg border flex-1 overflow-hidden">
-          <div className="h-full overflow-auto">
-            <Table>
-              <TableHeader className="sticky top-0 bg-background">
+        {/* Orders Table - Google Sheets Style */}
+        <div className="bg-white border rounded-lg overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Order ID</TableHead>
+                <TableHead>Customer</TableHead>
+                <TableHead>Contact</TableHead>
+                <TableHead>Address</TableHead>
+                <TableHead>Items</TableHead>
+                <TableHead>Amount</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredOrders.length === 0 ? (
                 <TableRow>
-                  <TableHead className="w-20">ID</TableHead>
-                  <TableHead className="w-32">Customer</TableHead>
-                  <TableHead className="w-40">Contact</TableHead>
-                  <TableHead className="w-20">Amount</TableHead>
-                  <TableHead className="w-20">Status</TableHead>
-                  <TableHead className="w-24">Date</TableHead>
-                  <TableHead className="w-32">Actions</TableHead>
+                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                    No orders found
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredOrders.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                      No orders found
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredOrders.map((order) => {
-                    const orderDate = new Date(order.created_at);
-                    return (
-                      <TableRow key={order.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/admin/orders/${order.id}`)}>
-                        <TableCell className="font-mono text-xs">{order.id.slice(0, 6)}</TableCell>
-                        <TableCell className="font-medium text-sm">{order.customer_name}</TableCell>
-                        <TableCell>
-                          <div className="text-xs">
-                            <div className="truncate">{order.customer_email}</div>
-                            <div className="text-muted-foreground">{order.customer_phone}</div>
-                            {order.allergies && (
-                              <div className="text-red-600 text-xs mt-1">⚠️ Allergies</div>
-                            )}
+              ) : (
+                filteredOrders.map((order) => {
+                  const orderDate = new Date(order.created_at);
+                  const orderItems = order.order_items ? JSON.parse(order.order_items) : [];
+                  return (
+                    <TableRow key={order.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/admin/orders/${order.id}`)}>
+                      <TableCell className="font-mono">#{order.id.slice(0, 8)}</TableCell>
+                      <TableCell>
+                        <div>
+                          <div className="font-medium">{order.customer_name}</div>
+                          {order.allergies && (
+                            <div className="text-red-600 text-xs">⚠️ Allergies</div>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-sm">
+                          <div>{order.customer_email}</div>
+                          <div className="text-muted-foreground">{order.customer_phone}</div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-sm max-w-xs">
+                          <div>{order.delivery_address}</div>
+                          <div className="text-muted-foreground">{order.delivery_city}, {order.delivery_postcode}</div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-sm">
+                          <div className="font-medium">{orderItems.length} items</div>
+                          <div className="text-muted-foreground">
+                            {orderItems.slice(0, 2).map((item: any) => item.name).join(', ')}
+                            {orderItems.length > 2 && '...'}
                           </div>
-                        </TableCell>
-                        <TableCell className="font-bold text-sm">
-                          <div>£{order.total_amount.toFixed(2)}</div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div>
+                          <div className="font-bold">£{order.total_amount.toFixed(2)}</div>
                           <div className="text-xs text-muted-foreground">
                             Sub: £{order.subtotal_amount?.toFixed(2) || '0.00'} + Del: £{order.delivery_fee?.toFixed(2) || '0.00'}
                           </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={order.order_status === 'delivered' ? 'default' : 'secondary'} className="text-xs">
-                            {order.order_status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-xs">
-                          <div>{orderDate.toLocaleDateString()}</div>
-                          <div className="text-muted-foreground">{orderDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
-                        </TableCell>
-                        <TableCell onClick={(e) => e.stopPropagation()}>
-                          <div className="flex gap-1">
-                            <Button size="sm" variant="outline" onClick={() => navigate(`/admin/orders/${order.id}`)} className="h-7 px-2">
-                              <Eye className="h-3 w-3" />
-                            </Button>
-                            <Select onValueChange={(val) => updateStatus(order.id, val)}>
-                              <SelectTrigger className="w-20 h-7 text-xs">
-                                <SelectValue placeholder="Update" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="processing">Processing</SelectItem>
-                                <SelectItem value="shipped">Shipped</SelectItem>
-                                <SelectItem value="delivered">Delivered</SelectItem>
-                                <SelectItem value="cancelled">Cancelled</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={order.order_status === 'delivered' ? 'default' : 'secondary'}>
+                          {order.order_status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-sm">
+                          <div>{orderDate.toLocaleDateString('en-GB')}</div>
+                          <div className="text-muted-foreground">{orderDate.toLocaleTimeString('en-GB', {hour: '2-digit', minute:'2-digit'})}</div>
+                        </div>
+                      </TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="outline" onClick={() => navigate(`/admin/orders/${order.id}`)}>
+                            <Eye className="h-3 w-3" />
+                          </Button>
+                          <Select onValueChange={(val) => updateStatus(order.id, val)}>
+                            <SelectTrigger className="w-24 h-8">
+                              <SelectValue placeholder="Update" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="processing">Processing</SelectItem>
+                              <SelectItem value="shipped">Shipped</SelectItem>
+                              <SelectItem value="delivered">Delivered</SelectItem>
+                              <SelectItem value="cancelled">Cancelled</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
         </div>
       </div>
     </AdminLayout>

@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Search } from "lucide-react";
 import { SEOHead } from "@/components/SEOHead";
 import { supabase } from "@/lib/supabase";
-import { ComprehensiveCateringForm } from "@/components/forms/ComprehensiveCateringForm";
+import { StreamlinedCateringForm } from "@/components/forms/StreamlinedCateringForm";
 
 interface Product {
   id: string;
@@ -100,8 +100,8 @@ const Catering = () => {
         </div>
       </section>
 
-      {/* Comprehensive Catering Booking Form */}
-      <ComprehensiveCateringForm />
+      {/* Streamlined Catering Booking Form */}
+      <StreamlinedCateringForm />
 
       {/* Available Items */}
       <section className="py-12">
