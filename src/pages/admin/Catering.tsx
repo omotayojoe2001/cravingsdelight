@@ -22,6 +22,11 @@ interface CateringRequest {
   submitted_at: string;
   product_id?: string;
   product_name?: string;
+  selected_products?: string;
+  total_estimated_guests?: number;
+  event_type?: string;
+  budget_range?: string;
+  additional_services?: string;
 }
 
 export default function Catering() {
@@ -94,6 +99,16 @@ export default function Catering() {
                       <div>
                         <h3 className="font-medium text-sm">{req.requester_name}</h3>
                         <p className="text-xs text-muted-foreground">{req.requester_email}</p>
+                        {req.event_type && (
+                          <Badge variant="outline" className="text-xs mt-1 bg-blue-50 text-blue-700">
+                            {req.event_type}
+                          </Badge>
+                        )}
+                        {req.selected_products && (
+                          <Badge variant="outline" className="text-xs mt-1 bg-green-50 text-green-700">
+                            {JSON.parse(req.selected_products).length} items
+                          </Badge>
+                        )}
                         {req.product_name && (
                           <Badge variant="outline" className="text-xs mt-1 bg-primary/10 text-primary">
                             {req.product_name}
@@ -109,7 +124,7 @@ export default function Catering() {
                     <div className="space-y-2 mb-4">
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Guests:</span>
-                        <span className="font-medium">{req.number_of_guests}</span>
+                        <span className="font-medium">{req.total_estimated_guests || req.number_of_guests}</span>
                       </div>
                       
                       <div className="flex justify-between text-sm">
@@ -136,10 +151,34 @@ export default function Catering() {
                         <p className="font-medium text-xs mt-1">{req.requester_phone}</p>
                       </div>
                       
+                      {req.budget_range && (
+                        <div className="text-sm">
+                          <span className="text-muted-foreground">Budget:</span>
+                          <p className="font-medium text-xs mt-1">{req.budget_range}</p>
+                        </div>
+                      )}
+                      
                       {req.requirements && (
                         <div className="text-sm">
                           <span className="text-muted-foreground">Requirements:</span>
                           <p className="text-xs mt-1 line-clamp-2">{req.requirements}</p>
+                        </div>
+                      )}
+                      
+                      {req.selected_products && (
+                        <div className="text-sm">
+                          <span className="text-muted-foreground">Selected Items:</span>
+                          <div className="text-xs mt-1 space-y-1">
+                            {JSON.parse(req.selected_products).slice(0, 3).map((item: any, idx: number) => (
+                              <div key={idx} className="flex justify-between">
+                                <span>{item.name}</span>
+                                <span>{item.quantity}x {item.size}</span>
+                              </div>
+                            ))}
+                            {JSON.parse(req.selected_products).length > 3 && (
+                              <p className="text-muted-foreground">+{JSON.parse(req.selected_products).length - 3} more items</p>
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>
