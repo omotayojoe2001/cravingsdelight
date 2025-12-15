@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
-import { CateringForm } from '@/components/forms/CateringForm';
+import { ProductCateringForm } from '@/components/forms/ProductCateringForm';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Users, Clock, MapPin } from 'lucide-react';
@@ -151,11 +151,11 @@ export default function CateringProduct() {
                   size="lg" 
                   className="w-full"
                   onClick={() => {
-                    const form = document.getElementById('catering-form');
+                    const form = document.getElementById(`catering-form-${product.id}`);
                     form?.scrollIntoView({ behavior: 'smooth' });
                   }}
                 >
-                  Request Quote for {product.name}
+                  Book {product.name} Now
                 </Button>
               </div>
             </motion.div>
@@ -163,9 +163,9 @@ export default function CateringProduct() {
         </div>
       </section>
 
-      {/* Catering Form */}
-      <div id="catering-form">
-        <CateringForm />
+      {/* Product-Specific Catering Form */}
+      <div id={`catering-form-${product.id}`}>
+        <ProductCateringForm product={product} />
       </div>
     </Layout>
   );

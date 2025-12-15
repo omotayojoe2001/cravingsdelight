@@ -6,9 +6,11 @@ import { brandContent } from "@/data/menu";
 import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Search } from "lucide-react";
 import { SEOHead } from "@/components/SEOHead";
 import { supabase } from "@/lib/supabase";
+import { ProductCateringForm } from "@/components/forms/ProductCateringForm";
 
 interface Product {
   id: string;
@@ -98,7 +100,7 @@ const Catering = () => {
         </div>
       </section>
 
-      {/* Catering Form First */}
+      {/* General Catering Form */}
       <CateringForm />
 
       {/* Available Items */}
@@ -134,13 +136,13 @@ const Catering = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
             {filteredItems.map((item, index) => (
-              <Link key={item.id} to={`/catering/${item.id}`}>
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.2 + index * 0.05 }}
-                  className="bg-card rounded-xl overflow-hidden shadow-soft hover:shadow-elevated transition-all group cursor-pointer"
-                >
+              <motion.div
+                key={item.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 + index * 0.05 }}
+                className="bg-card rounded-xl overflow-hidden shadow-soft hover:shadow-elevated transition-all group"
+              >
                 <div className="relative h-48 overflow-hidden">
                   <img
                     src={item.image || 'https://images.unsplash.com/photo-1547592180-85f173990554?w=800&q=80'}
@@ -149,14 +151,24 @@ const Catering = () => {
                   />
                 </div>
                 <div className="p-4">
-                  <h3 className="font-display text-lg font-semibold text-foreground mb-1">
+                  <h3 className="font-display text-lg font-semibold text-foreground mb-2">
                     {item.name}
                   </h3>
-                  <p className="text-sm text-muted-foreground">{item.description}</p>
-                  <p className="text-sm font-medium text-primary mt-2">From £{item.price.toFixed(2)}</p>
+                  <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{item.description}</p>
+                  <Button 
+                    className="w-full" 
+                    variant="wine"
+                    onClick={() => {
+                      const form = document.getElementById(`catering-form-${item.id}`);
+                      if (form) {
+                        form.scrollIntoView({ behavior: 'smooth' });
+                      }
+                    }}
+                  >
+                    Book {item.name} Now
+                  </Button>
                 </div>
-                </motion.div>
-              </Link>
+              </motion.div>
             ))}
           </div>
 
@@ -182,7 +194,14 @@ const Catering = () => {
       {/* Gallery Section */}
       <CateringGallery />
 
-      {/* Catering Form Again at End */}
+      {/* Individual Product Catering Forms */}
+      {filteredItems.map((item) => (
+        <div key={`form-${item.id}`} id={`catering-form-${item.id}`}>
+          <ProductCateringForm product={item} />
+        </div>
+      ))}
+
+      {/* General Catering Form at End */}
       <CateringForm />
     </Layout>
   );

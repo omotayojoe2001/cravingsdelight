@@ -20,6 +20,8 @@ interface CateringRequest {
   requirements: string;
   status: string;
   submitted_at: string;
+  product_id?: string;
+  product_name?: string;
 }
 
 export default function Catering() {
@@ -92,6 +94,11 @@ export default function Catering() {
                       <div>
                         <h3 className="font-medium text-sm">{req.requester_name}</h3>
                         <p className="text-xs text-muted-foreground">{req.requester_email}</p>
+                        {req.product_name && (
+                          <Badge variant="outline" className="text-xs mt-1 bg-primary/10 text-primary">
+                            {req.product_name}
+                          </Badge>
+                        )}
                       </div>
                       <Badge variant={req.status === 'confirmed' ? 'default' : 'secondary'} className="text-xs">
                         {req.status}
