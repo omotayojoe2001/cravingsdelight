@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Search, Filter, Eye, FileText } from 'lucide-react';
+import { Search, Filter, Eye, FileText, Trash2 } from 'lucide-react';
 import InvoiceModal from '@/components/admin/InvoiceModal';
 
 interface CateringRequest {
@@ -41,6 +41,8 @@ export default function Catering() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [invoiceRequest, setInvoiceRequest] = useState<CateringRequest | null>(null);
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
+  const [selectedRequests, setSelectedRequests] = useState<string[]>([]);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     fetchRequests();
@@ -103,6 +105,45 @@ export default function Catering() {
     fetchRequests();
   }
 
+  const handleSelectAll = (checked: boolean) => {
+    setSelectedRequests(checked ? filteredRequests.map(r => r.id) : []);
+  };
+
+  const handleSelectRequest = (requestId: string, checked: boolean) => {
+    setSelectedRequests(prev => 
+      checked ? [...prev, requestId] : prev.filter(id => id !== requestId)
+    );
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedRequests.length === 0) return;
+    if (!confirm(`Delete ${selectedRequests.length} selected catering requests? This action cannot be undone.`)) return;
+    
+    setDeleting(true);
+    const { error } = await supabase.from('catering_requests').delete().in('id', selectedRequests);
+    
+    if (error) {
+      toast.error('Failed to delete catering requests');
+    } else {
+      toast.success(`${selectedRequests.length} catering requests deleted`);
+      setSelectedRequests([]);
+      fetchRequests();
+    }
+    setDeleting(false);
+  };
+
+  const handleDeleteSingle = async (requestId: string) => {
+    if (!confirm('Delete this catering request? This action cannot be undone.')) return;
+    
+    const { error } = await supabase.from('catering_requests').delete().eq('id', requestId);
+    if (error) {
+      toast.error('Failed to delete catering request');
+    } else {
+      toast.success('Catering request deleted');
+      fetchRequests();
+    }
+  };
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -113,19 +154,32 @@ export default function Catering() {
             <p className="text-muted-foreground">{filteredRequests.length} of {requests.length} requests</p>
           </div>
           
-          {/* Quick Stats */}
           <div className="flex gap-4">
-            <div className="text-center">
-              <div className="text-lg font-bold text-green-600">
-                {requests.filter(r => r.status === 'delivered').length}
+            {selectedRequests.length > 0 && (
+              <Button 
+                onClick={handleBulkDelete} 
+                variant="destructive" 
+                size="sm"
+                disabled={deleting}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                {deleting ? 'Deleting...' : `Delete ${selectedRequests.length}`}
+              </Button>
+            )}
+            {/* Quick Stats */}
+            <div className="flex gap-4">
+              <div className="text-center">
+                <div className="text-lg font-bold text-green-600">
+                  {requests.filter(r => r.status === 'delivered').length}
+                </div>
+                <div className="text-xs text-muted-foreground">Delivered</div>
               </div>
-              <div className="text-xs text-muted-foreground">Delivered</div>
-            </div>
-            <div className="text-center">
-              <div className="text-lg font-bold text-yellow-600">
-                {requests.filter(r => r.status === 'pending').length}
+              <div className="text-center">
+                <div className="text-lg font-bold text-yellow-600">
+                  {requests.filter(r => r.status === 'pending').length}
+                </div>
+                <div className="text-xs text-muted-foreground">Pending</div>
               </div>
-              <div className="text-xs text-muted-foreground">Pending</div>
             </div>
           </div>
         </div>
@@ -165,6 +219,14 @@ export default function Catering() {
             <Table className="min-w-full">
             <TableHeader>
               <TableRow className="bg-gray-50 border-b">
+                <TableHead className="font-semibold text-gray-700 py-3 w-12">
+                  <input
+                    type="checkbox"
+                    checked={selectedRequests.length === filteredRequests.length && filteredRequests.length > 0}
+                    onChange={(e) => handleSelectAll(e.target.checked)}
+                    className="rounded"
+                  />
+                </TableHead>
                 <TableHead className="font-semibold text-gray-700 py-3 w-16">ID</TableHead>
                 <TableHead className="font-semibold text-gray-700 py-3 w-48">Customer</TableHead>
                 <TableHead className="font-semibold text-gray-700 py-3 w-32">Contact</TableHead>
@@ -177,7 +239,7 @@ export default function Catering() {
             <TableBody>
               {filteredRequests.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     No catering requests found
                   </TableCell>
                 </TableRow>
@@ -217,6 +279,14 @@ export default function Catering() {
                   
                   return (
                     <TableRow key={req.id} className="hover:bg-gray-50 border-b border-gray-100">
+                      <TableCell className="py-2 px-2">
+                        <input
+                          type="checkbox"
+                          checked={selectedRequests.includes(req.id)}
+                          onChange={(e) => handleSelectRequest(req.id, e.target.checked)}
+                          className="rounded"
+                        />
+                      </TableCell>
                       <TableCell className="font-mono text-xs py-2 px-2">#{req.id.slice(0, 6)}</TableCell>
                       
                       <TableCell className="py-2 px-2">
@@ -294,6 +364,15 @@ export default function Catering() {
                             title="Send Invoice"
                           >
                             <FileText className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => handleDeleteSingle(req.id)}
+                            className="h-7 w-7 p-0"
+                            title="Delete Request"
+                          >
+                            <Trash2 className="h-3 w-3" />
                           </Button>
                           <Select value={req.status} onValueChange={(val) => updateStatus(req.id, val)}>
                             <SelectTrigger className="w-20 h-7 text-xs">

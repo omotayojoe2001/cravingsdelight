@@ -39,6 +39,7 @@ interface InvoiceModalProps {
 }
 
 export default function InvoiceModal({ isOpen, onClose, cateringRequest }: InvoiceModalProps) {
+  const [currentTab, setCurrentTab] = useState('booking');
   const [items, setItems] = useState<InvoiceItem[]>([{ name: '', quantity: 1, unit_price: 0, total: 0 }]);
   const [taxRate, setTaxRate] = useState(20);
   const [deliveryFee, setDeliveryFee] = useState(0);
@@ -270,7 +271,7 @@ export default function InvoiceModal({ isOpen, onClose, cateringRequest }: Invoi
           <DialogTitle>Send Invoice - {cateringRequest.requester_name}</DialogTitle>
         </DialogHeader>
 
-        <Tabs defaultValue="booking" className="space-y-6">
+        <Tabs value={currentTab} onValueChange={setCurrentTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="booking">1. Review Booking</TabsTrigger>
             <TabsTrigger value="invoice">2. Invoice Items</TabsTrigger>
@@ -340,7 +341,7 @@ export default function InvoiceModal({ isOpen, onClose, cateringRequest }: Invoi
                 })()}
                 
                 <div className="flex justify-end pt-4 border-t">
-                  <Button onClick={() => document.querySelector('[value="invoice"]')?.click()}>
+                  <Button onClick={() => setCurrentTab('invoice')}>
                     Next: Invoice Items →
                   </Button>
                 </div>
@@ -525,10 +526,10 @@ export default function InvoiceModal({ isOpen, onClose, cateringRequest }: Invoi
           </div>
 
           <div className="flex justify-between pt-4 border-t">
-            <Button variant="outline" onClick={() => document.querySelector('[value="booking"]')?.click()}>
+            <Button variant="outline" onClick={() => setCurrentTab('booking')}>
               ← Back to Booking
             </Button>
-            <Button onClick={() => document.querySelector('[value="payment"]')?.click()}>
+            <Button onClick={() => setCurrentTab('payment')}>
               Next: Payment Method →
             </Button>
           </div>
@@ -664,10 +665,10 @@ export default function InvoiceModal({ isOpen, onClose, cateringRequest }: Invoi
             </Card>
             
             <div className="flex justify-between pt-4 border-t">
-              <Button variant="outline" onClick={() => document.querySelector('[value="invoice"]')?.click()}>
+              <Button variant="outline" onClick={() => setCurrentTab('invoice')}>
                 ← Back to Invoice
               </Button>
-              <Button onClick={() => document.querySelector('[value="confirm"]')?.click()}>
+              <Button onClick={() => setCurrentTab('confirm')}>
                 Next: Confirm & Send →
               </Button>
             </div>

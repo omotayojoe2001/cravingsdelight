@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Star, Check, X, Mail, Clock } from 'lucide-react';
+import { Star, Check, X, Mail, Clock, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
@@ -22,6 +22,8 @@ export default function Reviews() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [filter, setFilter] = useState('all');
   const [loading, setLoading] = useState(true);
+  const [selectedReviews, setSelectedReviews] = useState<string[]>([]);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     fetchReviews();
@@ -63,6 +65,45 @@ export default function Reviews() {
     }
   }
 
+  const handleSelectAll = (checked: boolean) => {
+    setSelectedReviews(checked ? reviews.map(r => r.id) : []);
+  };
+
+  const handleSelectReview = (reviewId: string, checked: boolean) => {
+    setSelectedReviews(prev => 
+      checked ? [...prev, reviewId] : prev.filter(id => id !== reviewId)
+    );
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedReviews.length === 0) return;
+    if (!confirm(`Delete ${selectedReviews.length} selected reviews? This action cannot be undone.`)) return;
+    
+    setDeleting(true);
+    const { error } = await supabase.from('reviews').delete().in('id', selectedReviews);
+    
+    if (error) {
+      toast.error('Failed to delete reviews');
+    } else {
+      toast.success(`${selectedReviews.length} reviews deleted`);
+      setSelectedReviews([]);
+      fetchReviews();
+    }
+    setDeleting(false);
+  };
+
+  const handleDeleteSingle = async (reviewId: string) => {
+    if (!confirm('Delete this review? This action cannot be undone.')) return;
+    
+    const { error } = await supabase.from('reviews').delete().eq('id', reviewId);
+    if (error) {
+      toast.error('Failed to delete review');
+    } else {
+      toast.success('Review deleted');
+      fetchReviews();
+    }
+  };
+
   const pendingCount = reviews.filter(r => !r.is_approved).length;
   const approvedCount = reviews.filter(r => r.is_approved).length;
 
@@ -79,16 +120,29 @@ export default function Reviews() {
               {pendingCount} pending • {approvedCount} approved
             </p>
           </div>
-          <Select value={filter} onValueChange={setFilter}>
-            <SelectTrigger className="w-40 h-9">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Reviews</SelectItem>
-              <SelectItem value="pending">Pending ({pendingCount})</SelectItem>
-              <SelectItem value="approved">Approved ({approvedCount})</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex gap-3">
+            {selectedReviews.length > 0 && (
+              <Button 
+                onClick={handleBulkDelete} 
+                variant="destructive" 
+                size="sm"
+                disabled={deleting}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                {deleting ? 'Deleting...' : `Delete ${selectedReviews.length}`}
+              </Button>
+            )}
+            <Select value={filter} onValueChange={setFilter}>
+              <SelectTrigger className="w-40 h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Reviews</SelectItem>
+                <SelectItem value="pending">Pending ({pendingCount})</SelectItem>
+                <SelectItem value="approved">Approved ({approvedCount})</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {/* Reviews Table - Compact Format */}
@@ -97,6 +151,14 @@ export default function Reviews() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12">
+                    <input
+                      type="checkbox"
+                      checked={selectedReviews.length === reviews.length && reviews.length > 0}
+                      onChange={(e) => handleSelectAll(e.target.checked)}
+                      className="rounded"
+                    />
+                  </TableHead>
                   <TableHead className="w-16">ID</TableHead>
                   <TableHead>Customer</TableHead>
                   <TableHead>Email</TableHead>
@@ -110,7 +172,7 @@ export default function Reviews() {
               <TableBody>
                 {reviews.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                       No {filter !== 'all' ? filter : ''} reviews found
                     </TableCell>
                   </TableRow>
@@ -119,6 +181,14 @@ export default function Reviews() {
                     const reviewDate = new Date(review.submitted_at);
                     return (
                       <TableRow key={review.id} className="py-2">
+                        <TableCell className="py-2">
+                          <input
+                            type="checkbox"
+                            checked={selectedReviews.includes(review.id)}
+                            onChange={(e) => handleSelectReview(review.id, e.target.checked)}
+                            className="rounded"
+                          />
+                        </TableCell>
                         <TableCell className="font-mono text-xs py-2">#{review.id.slice(0, 6)}</TableCell>
                         <TableCell className="py-2">
                           <div className="font-medium text-sm">{review.customer_name || 'Anonymous'}</div>
@@ -157,15 +227,20 @@ export default function Reviews() {
                           </div>
                         </TableCell>
                         <TableCell className="py-2">
-                          {!review.is_approved ? (
-                            <Button size="sm" onClick={() => updateStatus(review.id, true)} className="h-7 w-7 p-0">
-                              <Check className="h-3 w-3" />
+                          <div className="flex gap-1">
+                            {!review.is_approved ? (
+                              <Button size="sm" onClick={() => updateStatus(review.id, true)} className="h-7 w-7 p-0">
+                                <Check className="h-3 w-3" />
+                              </Button>
+                            ) : (
+                              <Button size="sm" variant="outline" onClick={() => updateStatus(review.id, false)} className="h-7 w-7 p-0">
+                                <X className="h-3 w-3" />
+                              </Button>
+                            )}
+                            <Button size="sm" variant="destructive" onClick={() => handleDeleteSingle(review.id)} className="h-7 w-7 p-0">
+                              <Trash2 className="h-3 w-3" />
                             </Button>
-                          ) : (
-                            <Button size="sm" variant="outline" onClick={() => updateStatus(review.id, false)} className="h-7 w-7 p-0">
-                              <X className="h-3 w-3" />
-                            </Button>
-                          )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     );

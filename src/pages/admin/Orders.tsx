@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Search, Filter, Eye } from 'lucide-react';
+import { Search, Filter, Eye, Trash2 } from 'lucide-react';
 
 interface Order {
   id: string;
@@ -36,6 +36,8 @@ export default function Orders() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortBy, setSortBy] = useState('date_desc');
   const [loading, setLoading] = useState(true);
+  const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     fetchOrders();
@@ -96,6 +98,45 @@ export default function Orders() {
     }
   }
 
+  const handleSelectAll = (checked: boolean) => {
+    setSelectedOrders(checked ? filteredOrders.map(o => o.id) : []);
+  };
+
+  const handleSelectOrder = (orderId: string, checked: boolean) => {
+    setSelectedOrders(prev => 
+      checked ? [...prev, orderId] : prev.filter(id => id !== orderId)
+    );
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedOrders.length === 0) return;
+    if (!confirm(`Delete ${selectedOrders.length} selected orders? This action cannot be undone.`)) return;
+    
+    setDeleting(true);
+    const { error } = await supabase.from('orders').delete().in('id', selectedOrders);
+    
+    if (error) {
+      toast.error('Failed to delete orders');
+    } else {
+      toast.success(`${selectedOrders.length} orders deleted`);
+      setSelectedOrders([]);
+      fetchOrders();
+    }
+    setDeleting(false);
+  };
+
+  const handleDeleteSingle = async (orderId: string) => {
+    if (!confirm('Delete this order? This action cannot be undone.')) return;
+    
+    const { error } = await supabase.from('orders').delete().eq('id', orderId);
+    if (error) {
+      toast.error('Failed to delete order');
+    } else {
+      toast.success('Order deleted');
+      fetchOrders();
+    }
+  };
+
   if (loading) return <AdminLayout><p>Loading...</p></AdminLayout>;
 
   return (
@@ -107,8 +148,21 @@ export default function Orders() {
             <h1 className="text-2xl font-bold">Orders</h1>
             <p className="text-muted-foreground">{filteredOrders.length} of {orders.length} orders</p>
           </div>
-          <div className="text-lg font-bold">
-            Total: £{filteredOrders.reduce((sum, o) => sum + o.total_amount, 0).toFixed(2)}
+          <div className="flex gap-3">
+            {selectedOrders.length > 0 && (
+              <Button 
+                onClick={handleBulkDelete} 
+                variant="destructive" 
+                size="sm"
+                disabled={deleting}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                {deleting ? 'Deleting...' : `Delete ${selectedOrders.length}`}
+              </Button>
+            )}
+            <div className="text-lg font-bold">
+              Total: £{filteredOrders.reduce((sum, o) => sum + o.total_amount, 0).toFixed(2)}
+            </div>
           </div>
         </div>
 
@@ -173,6 +227,14 @@ export default function Orders() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-12">
+                  <input
+                    type="checkbox"
+                    checked={selectedOrders.length === filteredOrders.length && filteredOrders.length > 0}
+                    onChange={(e) => handleSelectAll(e.target.checked)}
+                    className="rounded"
+                  />
+                </TableHead>
                 <TableHead className="w-16">ID</TableHead>
                 <TableHead className="w-32">Customer</TableHead>
                 <TableHead className="w-28">Contact</TableHead>
@@ -187,7 +249,7 @@ export default function Orders() {
             <TableBody>
               {filteredOrders.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                     No orders found
                   </TableCell>
                 </TableRow>
@@ -197,6 +259,14 @@ export default function Orders() {
                   const orderItems = order.order_items ? JSON.parse(order.order_items) : [];
                   return (
                     <TableRow key={order.id} className="cursor-pointer hover:bg-muted/50 py-2" onClick={() => navigate(`/admin/orders/${order.id}`)}>
+                      <TableCell onClick={(e) => e.stopPropagation()} className="py-2">
+                        <input
+                          type="checkbox"
+                          checked={selectedOrders.includes(order.id)}
+                          onChange={(e) => handleSelectOrder(order.id, e.target.checked)}
+                          className="rounded"
+                        />
+                      </TableCell>
                       <TableCell className="font-mono text-xs py-2">#{order.id.slice(0, 6)}</TableCell>
                       <TableCell className="py-2">
                         <div>
@@ -246,6 +316,9 @@ export default function Orders() {
                         <div className="flex gap-1">
                           <Button size="sm" variant="outline" onClick={() => navigate(`/admin/orders/${order.id}`)} className="h-7 w-7 p-0">
                             <Eye className="h-3 w-3" />
+                          </Button>
+                          <Button size="sm" variant="destructive" onClick={() => handleDeleteSingle(order.id)} className="h-7 w-7 p-0">
+                            <Trash2 className="h-3 w-3" />
                           </Button>
                           <Select onValueChange={(val) => updateStatus(order.id, val)}>
                             <SelectTrigger className="w-20 h-7 text-xs">

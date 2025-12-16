@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { Plus, Trash2, Phone, Share2, Settings, MapPin, CreditCard } from 'lucide-react';
+import { Plus, Trash2, Phone, Share2, Settings, MapPin, CreditCard, Mail } from 'lucide-react';
 import PaymentSettingsModal from '@/components/admin/PaymentSettingsModal';
 
 interface Setting {
@@ -31,10 +31,12 @@ export default function SettingsPage() {
   const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>([]);
   const [newZone, setNewZone] = useState({ postcode_prefix: '', area_name: '', delivery_fee: 0 });
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [adminSettings, setAdminSettings] = useState({ admin_email: '', business_name: '', send_order_notifications: true, send_catering_notifications: true, send_review_notifications: true });
 
   useEffect(() => {
     fetchSettings();
     fetchDeliveryZones();
+    fetchAdminSettings();
   }, []);
 
   async function fetchSettings() {
@@ -49,6 +51,29 @@ export default function SettingsPage() {
   async function fetchDeliveryZones() {
     const { data } = await supabase.from('delivery_zones').select('*').order('postcode_prefix');
     if (data) setDeliveryZones(data);
+  }
+
+  async function fetchAdminSettings() {
+    const { data } = await supabase.from('payment_settings').select('*').eq('method_type', 'admin_notifications').single();
+    if (data?.settings) {
+      setAdminSettings(data.settings);
+    }
+  }
+
+  async function updateAdminSettings() {
+    const { error } = await supabase
+      .from('payment_settings')
+      .upsert({
+        method_type: 'admin_notifications',
+        settings: adminSettings,
+        is_active: true
+      });
+    
+    if (error) {
+      toast.error('Failed to update admin settings');
+    } else {
+      toast.success('Admin settings updated');
+    }
   }
 
   async function addDeliveryZone() {
@@ -133,6 +158,66 @@ export default function SettingsPage() {
           <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
           <p className="text-muted-foreground">Manage your restaurant configuration and preferences</p>
         </div>
+
+        {/* Admin Email Settings Card */}
+        <Card className="shadow-sm border-l-4 border-l-red-500 mb-6">
+          <CardHeader className="bg-gradient-to-r from-red-50 to-white">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Mail className="h-5 w-5 text-red-600" />
+              Admin Notifications
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-6 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Admin Email</Label>
+                <Input
+                  type="email"
+                  value={adminSettings.admin_email}
+                  onChange={(e) => setAdminSettings({ ...adminSettings, admin_email: e.target.value })}
+                  placeholder="admin@cravingsdelight.co.uk"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Business Name</Label>
+                <Input
+                  value={adminSettings.business_name}
+                  onChange={(e) => setAdminSettings({ ...adminSettings, business_name: e.target.value })}
+                  placeholder="Cravings Delight"
+                />
+              </div>
+            </div>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={adminSettings.send_order_notifications}
+                  onChange={(e) => setAdminSettings({ ...adminSettings, send_order_notifications: e.target.checked })}
+                />
+                <span className="text-sm">Order notifications</span>
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={adminSettings.send_catering_notifications}
+                  onChange={(e) => setAdminSettings({ ...adminSettings, send_catering_notifications: e.target.checked })}
+                />
+                <span className="text-sm">Catering notifications</span>
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={adminSettings.send_review_notifications}
+                  onChange={(e) => setAdminSettings({ ...adminSettings, send_review_notifications: e.target.checked })}
+                />
+                <span className="text-sm">Review notifications</span>
+              </label>
+            </div>
+            <Button onClick={updateAdminSettings} className="shadow-sm">
+              Save Admin Settings
+            </Button>
+          </CardContent>
+        </Card>
 
         {/* Payment Settings Card */}
         <Card className="shadow-sm border-l-4 border-l-indigo-500 mb-6">

@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Search, Filter, Eye, FileText, CheckCircle } from 'lucide-react';
+import { Search, Filter, Eye, FileText, CheckCircle, Trash2 } from 'lucide-react';
 
 interface Invoice {
   id: string;
@@ -40,6 +40,8 @@ export default function Invoices() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedInvoices, setSelectedInvoices] = useState<string[]>([]);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     fetchInvoices();
@@ -92,6 +94,45 @@ export default function Invoices() {
     }
   }
 
+  const handleSelectAll = (checked: boolean) => {
+    setSelectedInvoices(checked ? filteredInvoices.map(inv => inv.id) : []);
+  };
+
+  const handleSelectInvoice = (invoiceId: string, checked: boolean) => {
+    setSelectedInvoices(prev => 
+      checked ? [...prev, invoiceId] : prev.filter(id => id !== invoiceId)
+    );
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedInvoices.length === 0) return;
+    if (!confirm(`Delete ${selectedInvoices.length} selected invoices? This action cannot be undone.`)) return;
+    
+    setDeleting(true);
+    const { error } = await supabase.from('invoices').delete().in('id', selectedInvoices);
+    
+    if (error) {
+      toast.error('Failed to delete invoices');
+    } else {
+      toast.success(`${selectedInvoices.length} invoices deleted`);
+      setSelectedInvoices([]);
+      fetchInvoices();
+    }
+    setDeleting(false);
+  };
+
+  const handleDeleteSingle = async (invoiceId: string) => {
+    if (!confirm('Delete this invoice? This action cannot be undone.')) return;
+    
+    const { error } = await supabase.from('invoices').delete().eq('id', invoiceId);
+    if (error) {
+      toast.error('Failed to delete invoice');
+    } else {
+      toast.success('Invoice deleted');
+      fetchInvoices();
+    }
+  };
+
   const totalRevenue = invoices.filter(inv => inv.status === 'paid').reduce((sum, inv) => sum + inv.total_amount, 0);
   const pendingAmount = invoices.filter(inv => inv.status === 'sent').reduce((sum, inv) => sum + inv.total_amount, 0);
 
@@ -105,19 +146,32 @@ export default function Invoices() {
             <p className="text-muted-foreground">{filteredInvoices.length} of {invoices.length} invoices</p>
           </div>
           
-          {/* Quick Stats */}
           <div className="flex gap-4">
-            <div className="text-center">
-              <div className="text-lg font-bold text-green-600">
-                £{totalRevenue.toFixed(2)}
+            {selectedInvoices.length > 0 && (
+              <Button 
+                onClick={handleBulkDelete} 
+                variant="destructive" 
+                size="sm"
+                disabled={deleting}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                {deleting ? 'Deleting...' : `Delete ${selectedInvoices.length}`}
+              </Button>
+            )}
+            {/* Quick Stats */}
+            <div className="flex gap-4">
+              <div className="text-center">
+                <div className="text-lg font-bold text-green-600">
+                  £{totalRevenue.toFixed(2)}
+                </div>
+                <div className="text-xs text-muted-foreground">Paid</div>
               </div>
-              <div className="text-xs text-muted-foreground">Paid</div>
-            </div>
-            <div className="text-center">
-              <div className="text-lg font-bold text-yellow-600">
-                £{pendingAmount.toFixed(2)}
+              <div className="text-center">
+                <div className="text-lg font-bold text-yellow-600">
+                  £{pendingAmount.toFixed(2)}
+                </div>
+                <div className="text-xs text-muted-foreground">Pending</div>
               </div>
-              <div className="text-xs text-muted-foreground">Pending</div>
             </div>
           </div>
         </div>
@@ -157,6 +211,14 @@ export default function Invoices() {
             <Table className="min-w-full">
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12">
+                    <input
+                      type="checkbox"
+                      checked={selectedInvoices.length === filteredInvoices.length && filteredInvoices.length > 0}
+                      onChange={(e) => handleSelectAll(e.target.checked)}
+                      className="rounded"
+                    />
+                  </TableHead>
                   <TableHead>Invoice #</TableHead>
                   <TableHead>Customer</TableHead>
                   <TableHead>Event Details</TableHead>
@@ -169,13 +231,21 @@ export default function Invoices() {
               <TableBody>
                 {filteredInvoices.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       No invoices found
                     </TableCell>
                   </TableRow>
                 ) : (
                   filteredInvoices.map((invoice) => (
                     <TableRow key={invoice.id} className="hover:bg-muted/50">
+                      <TableCell>
+                        <input
+                          type="checkbox"
+                          checked={selectedInvoices.includes(invoice.id)}
+                          onChange={(e) => handleSelectInvoice(invoice.id, e.target.checked)}
+                          className="rounded"
+                        />
+                      </TableCell>
                       <TableCell className="font-mono text-sm font-medium">
                         {invoice.invoice_number}
                       </TableCell>
@@ -252,7 +322,7 @@ export default function Invoices() {
                               setSelectedInvoice(invoice);
                               setIsModalOpen(true);
                             }}
-                            className="h-8 w-8 p-0"
+                            className="h-7 w-7 p-0"
                           >
                             <Eye className="h-3 w-3" />
                           </Button>
@@ -261,12 +331,21 @@ export default function Invoices() {
                               size="sm"
                               variant="outline"
                               onClick={() => markAsPaid(invoice.id)}
-                              className="h-8 w-8 p-0"
+                              className="h-7 w-7 p-0"
                               title="Mark as Paid"
                             >
                               <CheckCircle className="h-3 w-3" />
                             </Button>
                           )}
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => handleDeleteSingle(invoice.id)}
+                            className="h-7 w-7 p-0"
+                            title="Delete Invoice"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>

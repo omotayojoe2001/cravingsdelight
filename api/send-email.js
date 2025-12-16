@@ -9,7 +9,8 @@ export default async function handler(req, res) {
   }
   
   const RESEND_API_KEY = process.env.RESEND_API_KEY;
-  const ADMIN_EMAIL = 'joshuaomotayo10@gmail.com';
+  const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
+  const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY;
   
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -20,6 +21,23 @@ export default async function handler(req, res) {
   }
 
   const { type, data } = req.body;
+
+  // Get admin email from database
+  let ADMIN_EMAIL = 'joshuaomotayo10@gmail.com'; // fallback
+  try {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/payment_settings?method_type=eq.admin_notifications&select=settings`, {
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+      }
+    });
+    const adminSettings = await response.json();
+    if (adminSettings?.[0]?.settings?.admin_email) {
+      ADMIN_EMAIL = adminSettings[0].settings.admin_email;
+    }
+  } catch (error) {
+    console.log('Using fallback admin email:', error.message);
+  }
 
   try {
     let emails = [];
@@ -53,10 +71,23 @@ export default async function handler(req, res) {
         <p>Delivery Address: ${data.delivery_address}</p>
       `;
 
-      emails = [
-        { to: data.customer_email, subject: 'Order Confirmation - Cravings Delight', html: customerHtml },
-        { to: ADMIN_EMAIL, subject: 'New Order Received from Cravings Delight', html: adminHtml }
-      ];
+      emails = [{ to: data.customer_email, subject: 'Order Confirmation - Cravings Delight', html: customerHtml }];
+      
+      // Add admin notification if enabled
+      try {
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/payment_settings?method_type=eq.admin_notifications&select=settings`, {
+          headers: {
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+          }
+        });
+        const adminSettings = await response.json();
+        if (adminSettings?.[0]?.settings?.send_order_notifications) {
+          emails.push({ to: ADMIN_EMAIL, subject: 'New Order Received from Cravings Delight', html: adminHtml });
+        }
+      } catch (error) {
+        emails.push({ to: ADMIN_EMAIL, subject: 'New Order Received from Cravings Delight', html: adminHtml });
+      }
     }
 
     if (type === 'catering') {
@@ -88,10 +119,23 @@ export default async function handler(req, res) {
         <p>Requirements: ${data.requirements || 'None'}</p>
       `;
 
-      emails = [
-        { to: data.customer_email, subject: 'Catering Request Received - Cravings Delight', html: customerHtml },
-        { to: ADMIN_EMAIL, subject: 'New Catering Request from Cravings Delight', html: adminHtml }
-      ];
+      emails = [{ to: data.customer_email, subject: 'Catering Request Received - Cravings Delight', html: customerHtml }];
+      
+      // Add admin notification if enabled
+      try {
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/payment_settings?method_type=eq.admin_notifications&select=settings`, {
+          headers: {
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+          }
+        });
+        const adminSettings = await response.json();
+        if (adminSettings?.[0]?.settings?.send_catering_notifications) {
+          emails.push({ to: ADMIN_EMAIL, subject: 'New Catering Request from Cravings Delight', html: adminHtml });
+        }
+      } catch (error) {
+        emails.push({ to: ADMIN_EMAIL, subject: 'New Catering Request from Cravings Delight', html: adminHtml });
+      }
     }
 
     if (type === 'review') {
@@ -105,9 +149,23 @@ export default async function handler(req, res) {
         <p>Please approve or reject this review in the admin panel.</p>
       `;
 
-      emails = [
-        { to: ADMIN_EMAIL, subject: 'New Review Submitted from Cravings Delight', html: adminHtml }
-      ];
+      emails = [];
+      
+      // Add admin notification if enabled
+      try {
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/payment_settings?method_type=eq.admin_notifications&select=settings`, {
+          headers: {
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+          }
+        });
+        const adminSettings = await response.json();
+        if (adminSettings?.[0]?.settings?.send_review_notifications) {
+          emails.push({ to: ADMIN_EMAIL, subject: 'New Review Submitted from Cravings Delight', html: adminHtml });
+        }
+      } catch (error) {
+        emails.push({ to: ADMIN_EMAIL, subject: 'New Review Submitted from Cravings Delight', html: adminHtml });
+      }
     }
 
     if (type === 'invoice') {
