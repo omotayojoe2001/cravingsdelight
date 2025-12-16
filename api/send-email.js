@@ -36,7 +36,7 @@ export default async function handler(req, res) {
       ADMIN_EMAIL = adminSettings[0].settings.admin_email;
     }
   } catch (error) {
-    console.log('Using fallback admin email:', error.message);
+    // Using fallback admin email
   }
 
   try {
@@ -55,6 +55,7 @@ export default async function handler(req, res) {
         <p>Delivery Address: ${data.delivery_address}</p>
         <p>We'll process your order within 3-5 working days.</p>
         <p>Best regards,<br>Cravings Delight Team</p>
+        <p style="font-size: 12px; color: #666; margin-top: 20px;">Visit us at <a href="https://cravingsdelight.co.uk" style="color: #667eea;">cravingsdelight.co.uk</a></p>
       `;
 
       const adminHtml = `
@@ -103,6 +104,7 @@ export default async function handler(req, res) {
         ${data.selected_items ? `<h3>Selected Menu Items:</h3><ul>${data.selected_items.map(item => `<li>${item.quantity}x ${item.name} ${item.size ? `(${item.size})` : ''}</li>`).join('')}</ul>` : ''}
         <p>We'll be in touch within 24 hours to discuss your requirements.</p>
         <p>Best regards,<br>Cravings Delight Team</p>
+        <p style="font-size: 12px; color: #666; margin-top: 20px;">Visit us at <a href="https://cravingsdelight.co.uk" style="color: #667eea;">cravingsdelight.co.uk</a></p>
       `;
 
       const adminHtml = `
@@ -372,7 +374,7 @@ export default async function handler(req, res) {
               <p style="margin: 0 0 10px 0; font-size: 16px; font-weight: 600;">Best regards,</p>
               <p style="margin: 0 0 20px 0; font-size: 18px; font-weight: bold;">Cravings Delight Team</p>
               <div style="border-top: 1px solid #475569; padding-top: 20px;">
-                <p style="margin: 0; opacity: 0.7; font-size: 12px;">Premium Catering Services | cravingsdelight.co.uk</p>
+                <p style="margin: 0; opacity: 0.7; font-size: 12px;">Premium Catering Services | <a href="https://cravingsdelight.co.uk" style="color: #94a3b8; text-decoration: none;">cravingsdelight.co.uk</a></p>
               </div>
             </div>
             
@@ -492,7 +494,7 @@ export default async function handler(req, res) {
               <p style="color: #64748b; margin: 0 0 10px 0; font-size: 16px; font-weight: 600;">Best regards,</p>
               <p style="color: #1e293b; margin: 0; font-size: 18px; font-weight: bold;">Cravings Delight Team</p>
               <div style="margin: 20px 0 0 0; padding: 15px 0; border-top: 1px solid #e2e8f0;">
-                <p style="color: #64748b; margin: 0; font-size: 12px;">Premium Catering Services | cravingsdelight.co.uk</p>
+                <p style="color: #64748b; margin: 0; font-size: 12px;">Premium Catering Services | <a href="https://cravingsdelight.co.uk" style="color: #64748b; text-decoration: none;">cravingsdelight.co.uk</a></p>
               </div>
             </div>
             
@@ -533,7 +535,7 @@ export default async function handler(req, res) {
 
     res.status(200).json({ success: true, results });
   } catch (error) {
-    console.error('Email error:', error);
+    // Email error occurred
     res.status(500).json({ error: error.message });
   }
 }

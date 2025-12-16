@@ -63,11 +63,8 @@ export default function SettingsPage() {
   async function updateAdminSettings() {
     const { error } = await supabase
       .from('payment_settings')
-      .upsert({
-        method_type: 'admin_notifications',
-        settings: adminSettings,
-        is_active: true
-      });
+      .update({ settings: adminSettings })
+      .eq('method_type', 'admin_notifications');
     
     if (error) {
       toast.error('Failed to update admin settings');
