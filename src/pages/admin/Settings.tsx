@@ -7,7 +7,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { Plus, Trash2, Phone, Share2, Settings, MapPin } from 'lucide-react';
+import { Plus, Trash2, Phone, Share2, Settings, MapPin, CreditCard } from 'lucide-react';
+import PaymentSettingsModal from '@/components/admin/PaymentSettingsModal';
 
 interface Setting {
   id: string;
@@ -24,11 +25,12 @@ interface DeliveryZone {
   is_active: boolean;
 }
 
-export default function Settings() {
+export default function SettingsPage() {
   const [settings, setSettings] = useState<Setting[]>([]);
   const [values, setValues] = useState<Record<string, string>>({});
   const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>([]);
   const [newZone, setNewZone] = useState({ postcode_prefix: '', area_name: '', delivery_fee: 0 });
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
 
   useEffect(() => {
     fetchSettings();
@@ -86,7 +88,6 @@ export default function Settings() {
   }
 
   async function updateSetting(key: string) {
-    // Check if setting exists, if not create it
     const { data: existing } = await supabase
       .from('site_settings')
       .select('id')
@@ -128,231 +129,254 @@ export default function Settings() {
   return (
     <AdminLayout>
       <div className="space-y-6">
-        {/* Modern Header */}
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
           <p className="text-muted-foreground">Manage your restaurant configuration and preferences</p>
         </div>
 
-        {/* Settings Grid */}
+        {/* Payment Settings Card */}
+        <Card className="shadow-sm border-l-4 border-l-indigo-500 mb-6">
+          <CardHeader className="bg-gradient-to-r from-indigo-50 to-white">
+            <CardTitle className="text-lg flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CreditCard className="h-5 w-5 text-indigo-600" />
+                Payment Methods
+              </div>
+              <Button 
+                onClick={() => setIsPaymentModalOpen(true)}
+                size="sm"
+                className="shadow-sm"
+              >
+                <Settings className="h-4 w-4 mr-2" />
+                Configure
+              </Button>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-6">
+            <p className="text-sm text-muted-foreground">
+              Configure bank transfer, PayPal, and Stripe payment methods for invoices.
+              These settings will be used when sending invoices to customers.
+            </p>
+          </CardContent>
+        </Card>
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Contact Information */}
-            <Card className="shadow-sm border-l-4 border-l-blue-500">
-              <CardHeader className="bg-gradient-to-r from-blue-50 to-white">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Phone className="h-5 w-5 text-blue-600" />
-                  Contact Information
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4 p-6">
-                {settingGroups.contact.map((setting) => (
-                  <div key={setting.id} className="space-y-2">
-                    <Label className="text-sm font-medium text-slate-700">{setting.description}</Label>
-                    <div className="flex gap-3">
-                      <Input
-                        value={values[setting.setting_key] || ''}
-                        onChange={(e) => setValues({ ...values, [setting.setting_key]: e.target.value })}
-                        className="flex-1"
-                        placeholder={`Enter ${setting.description.toLowerCase()}`}
-                      />
-                      <Button 
-                        onClick={() => updateSetting(setting.setting_key)} 
-                        size="sm" 
-                        className="px-4 shadow-sm"
-                      >
-                        Save
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-
-            {/* Social Media */}
-            <Card className="shadow-sm border-l-4 border-l-purple-500">
-              <CardHeader className="bg-gradient-to-r from-purple-50 to-white">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Share2 className="h-5 w-5 text-purple-600" />
-                  Social Media
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4 p-6">
-                {settingGroups.social.map((setting) => (
-                  <div key={setting.id} className="space-y-2">
-                    <Label className="text-sm font-medium text-slate-700">{setting.description}</Label>
-                    <div className="flex gap-3">
-                      <Input
-                        value={values[setting.setting_key] || ''}
-                        onChange={(e) => setValues({ ...values, [setting.setting_key]: e.target.value })}
-                        className="flex-1"
-                        placeholder={`Enter ${setting.description.toLowerCase()}`}
-                      />
-                      <Button 
-                        onClick={() => updateSetting(setting.setting_key)} 
-                        size="sm" 
-                        className="px-4 shadow-sm"
-                      >
-                        Save
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-
-            {/* Operations */}
-            <Card className="lg:col-span-2 shadow-sm border-l-4 border-l-green-500">
-              <CardHeader className="bg-gradient-to-r from-green-50 to-white">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Settings className="h-5 w-5 text-green-600" />
-                  Operations & Delivery
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4 p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {settingGroups.operations.map((setting) => (
-                    <div key={setting.id} className="space-y-2">
-                      <Label className="text-sm font-medium text-slate-700">{setting.description}</Label>
-                      <div className="flex gap-3">
-                        {setting.setting_key === 'shipping_note' ? (
-                          <Textarea
-                            value={values[setting.setting_key] || ''}
-                            onChange={(e) => setValues({ ...values, [setting.setting_key]: e.target.value })}
-                            className="flex-1"
-                            rows={3}
-                            placeholder="Enter shipping notes"
-                          />
-                        ) : setting.setting_key.includes('delivery_fee') ? (
-                          <div className="flex gap-2 flex-1">
-                            <div className="relative flex-1">
-                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">£</span>
-                              <Input
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                value={values[setting.setting_key] || ''}
-                                onChange={(e) => setValues({ ...values, [setting.setting_key]: e.target.value })}
-                                className="pl-8"
-                                placeholder={setting.setting_key === 'delivery_fee_hull' ? '10.00' : '20.00'}
-                              />
-                            </div>
-                          </div>
-                        ) : (
-                          <Input
-                            value={values[setting.setting_key] || ''}
-                            onChange={(e) => setValues({ ...values, [setting.setting_key]: e.target.value })}
-                            className="flex-1"
-                            placeholder={`Enter ${setting.description.toLowerCase()}`}
-                          />
-                        )}
-                        <Button 
-                          onClick={() => updateSetting(setting.setting_key)} 
-                          size="sm" 
-                          className="px-4 shadow-sm"
-                        >
-                          Save
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Delivery Zones Management */}
-            <Card className="lg:col-span-2 shadow-sm border-l-4 border-l-orange-500">
-              <CardHeader className="bg-gradient-to-r from-orange-50 to-white">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <MapPin className="h-5 w-5 text-orange-600" />
-                  Delivery Zones
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-6">
-                {/* Add New Zone */}
-                <div className="mb-6 p-4 bg-gradient-to-r from-orange-50 to-yellow-50 rounded-lg border border-orange-200">
-                  <Label className="text-sm font-medium mb-3 block text-orange-800">Add New Delivery Zone</Label>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <Card className="shadow-sm border-l-4 border-l-blue-500">
+            <CardHeader className="bg-gradient-to-r from-blue-50 to-white">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Phone className="h-5 w-5 text-blue-600" />
+                Contact Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 p-6">
+              {settingGroups.contact.map((setting) => (
+                <div key={setting.id} className="space-y-2">
+                  <Label className="text-sm font-medium text-slate-700">{setting.description}</Label>
+                  <div className="flex gap-3">
                     <Input
-                      placeholder="Postcode (e.g., HU1)"
-                      value={newZone.postcode_prefix}
-                      onChange={(e) => setNewZone({ ...newZone, postcode_prefix: e.target.value.toUpperCase() })}
-                      className="bg-white"
+                      value={values[setting.setting_key] || ''}
+                      onChange={(e) => setValues({ ...values, [setting.setting_key]: e.target.value })}
+                      className="flex-1"
+                      placeholder={`Enter ${setting.description.toLowerCase()}`}
                     />
-                    <Input
-                      placeholder="Area name"
-                      value={newZone.area_name}
-                      onChange={(e) => setNewZone({ ...newZone, area_name: e.target.value })}
-                      className="bg-white"
-                    />
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">£</span>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        placeholder="Fee"
-                        value={newZone.delivery_fee || ''}
-                        onChange={(e) => setNewZone({ ...newZone, delivery_fee: parseFloat(e.target.value) || 0 })}
-                        className="pl-8 bg-white"
-                      />
-                    </div>
-                    <Button onClick={addDeliveryZone} className="shadow-sm">
-                      <Plus className="h-4 w-4 mr-2" /> Add Zone
+                    <Button 
+                      onClick={() => updateSetting(setting.setting_key)} 
+                      size="sm" 
+                      className="px-4 shadow-sm"
+                    >
+                      Save
                     </Button>
                   </div>
                 </div>
+              ))}
+            </CardContent>
+          </Card>
 
-                {/* Existing Zones */}
-                <div className="space-y-3 max-h-80 overflow-auto">
-                  {deliveryZones.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <MapPin className="h-12 w-12 mx-auto mb-3 text-muted-foreground/50" />
-                      <p>No delivery zones configured</p>
-                      <p className="text-sm">Add zones above to manage delivery pricing</p>
-                    </div>
-                  ) : (
-                    deliveryZones.map((zone) => (
-                      <div key={zone.id} className="flex items-center gap-3 p-3 bg-white border rounded-lg hover:shadow-sm transition-shadow">
-                        <div className="w-20">
-                          <Input
-                            value={zone.postcode_prefix}
-                            onChange={(e) => updateDeliveryZone(zone.id, 'postcode_prefix', e.target.value.toUpperCase())}
-                            className="text-center font-mono text-sm"
-                          />
-                        </div>
-                        <div className="flex-1">
-                          <Input
-                            value={zone.area_name}
-                            onChange={(e) => updateDeliveryZone(zone.id, 'area_name', e.target.value)}
-                            className="text-sm"
-                          />
-                        </div>
-                        <div className="w-24 relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">£</span>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={zone.delivery_fee}
-                            onChange={(e) => updateDeliveryZone(zone.id, 'delivery_fee', parseFloat(e.target.value))}
-                            className="pl-8 text-sm"
-                          />
-                        </div>
-                        <Button
-                          onClick={() => deleteDeliveryZone(zone.id)}
-                          variant="destructive"
-                          size="sm"
-                          className="h-9 w-9 p-0 shadow-sm"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))
-                  )}
+          <Card className="shadow-sm border-l-4 border-l-purple-500">
+            <CardHeader className="bg-gradient-to-r from-purple-50 to-white">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Share2 className="h-5 w-5 text-purple-600" />
+                Social Media
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 p-6">
+              {settingGroups.social.map((setting) => (
+                <div key={setting.id} className="space-y-2">
+                  <Label className="text-sm font-medium text-slate-700">{setting.description}</Label>
+                  <div className="flex gap-3">
+                    <Input
+                      value={values[setting.setting_key] || ''}
+                      onChange={(e) => setValues({ ...values, [setting.setting_key]: e.target.value })}
+                      className="flex-1"
+                      placeholder={`Enter ${setting.description.toLowerCase()}`}
+                    />
+                    <Button 
+                      onClick={() => updateSetting(setting.setting_key)} 
+                      size="sm" 
+                      className="px-4 shadow-sm"
+                    >
+                      Save
+                    </Button>
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          <Card className="lg:col-span-2 shadow-sm border-l-4 border-l-green-500">
+            <CardHeader className="bg-gradient-to-r from-green-50 to-white">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Settings className="h-5 w-5 text-green-600" />
+                Operations & Delivery
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {settingGroups.operations.map((setting) => (
+                  <div key={setting.id} className="space-y-2">
+                    <Label className="text-sm font-medium text-slate-700">{setting.description}</Label>
+                    <div className="flex gap-3">
+                      {setting.setting_key === 'shipping_note' ? (
+                        <Textarea
+                          value={values[setting.setting_key] || ''}
+                          onChange={(e) => setValues({ ...values, [setting.setting_key]: e.target.value })}
+                          className="flex-1"
+                          rows={3}
+                          placeholder="Enter shipping notes"
+                        />
+                      ) : setting.setting_key.includes('delivery_fee') ? (
+                        <div className="flex gap-2 flex-1">
+                          <div className="relative flex-1">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">£</span>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={values[setting.setting_key] || ''}
+                              onChange={(e) => setValues({ ...values, [setting.setting_key]: e.target.value })}
+                              className="pl-8"
+                              placeholder={setting.setting_key === 'delivery_fee_hull' ? '10.00' : '20.00'}
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <Input
+                          value={values[setting.setting_key] || ''}
+                          onChange={(e) => setValues({ ...values, [setting.setting_key]: e.target.value })}
+                          className="flex-1"
+                          placeholder={`Enter ${setting.description.toLowerCase()}`}
+                        />
+                      )}
+                      <Button 
+                        onClick={() => updateSetting(setting.setting_key)} 
+                        size="sm" 
+                        className="px-4 shadow-sm"
+                      >
+                        Save
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="lg:col-span-2 shadow-sm border-l-4 border-l-orange-500">
+            <CardHeader className="bg-gradient-to-r from-orange-50 to-white">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <MapPin className="h-5 w-5 text-orange-600" />
+                Delivery Zones
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="mb-6 p-4 bg-gradient-to-r from-orange-50 to-yellow-50 rounded-lg border border-orange-200">
+                <Label className="text-sm font-medium mb-3 block text-orange-800">Add New Delivery Zone</Label>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                  <Input
+                    placeholder="Postcode (e.g., HU1)"
+                    value={newZone.postcode_prefix}
+                    onChange={(e) => setNewZone({ ...newZone, postcode_prefix: e.target.value.toUpperCase() })}
+                    className="bg-white"
+                  />
+                  <Input
+                    placeholder="Area name"
+                    value={newZone.area_name}
+                    onChange={(e) => setNewZone({ ...newZone, area_name: e.target.value })}
+                    className="bg-white"
+                  />
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">£</span>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="Fee"
+                      value={newZone.delivery_fee || ''}
+                      onChange={(e) => setNewZone({ ...newZone, delivery_fee: parseFloat(e.target.value) || 0 })}
+                      className="pl-8 bg-white"
+                    />
+                  </div>
+                  <Button onClick={addDeliveryZone} className="shadow-sm">
+                    <Plus className="h-4 w-4 mr-2" /> Add Zone
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-3 max-h-80 overflow-auto">
+                {deliveryZones.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <MapPin className="h-12 w-12 mx-auto mb-3 text-muted-foreground/50" />
+                    <p>No delivery zones configured</p>
+                    <p className="text-sm">Add zones above to manage delivery pricing</p>
+                  </div>
+                ) : (
+                  deliveryZones.map((zone) => (
+                    <div key={zone.id} className="flex items-center gap-3 p-3 bg-white border rounded-lg hover:shadow-sm transition-shadow">
+                      <div className="w-20">
+                        <Input
+                          value={zone.postcode_prefix}
+                          onChange={(e) => updateDeliveryZone(zone.id, 'postcode_prefix', e.target.value.toUpperCase())}
+                          className="text-center font-mono text-sm"
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <Input
+                          value={zone.area_name}
+                          onChange={(e) => updateDeliveryZone(zone.id, 'area_name', e.target.value)}
+                          className="text-sm"
+                        />
+                      </div>
+                      <div className="w-24 relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">£</span>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={zone.delivery_fee}
+                          onChange={(e) => updateDeliveryZone(zone.id, 'delivery_fee', parseFloat(e.target.value))}
+                          className="pl-8 text-sm"
+                        />
+                      </div>
+                      <Button
+                        onClick={() => deleteDeliveryZone(zone.id)}
+                        variant="destructive"
+                        size="sm"
+                        className="h-9 w-9 p-0 shadow-sm"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </div>
+
+        {/* Payment Settings Modal */}
+        <PaymentSettingsModal
+          isOpen={isPaymentModalOpen}
+          onClose={() => setIsPaymentModalOpen(false)}
+        />
       </div>
     </AdminLayout>
   );

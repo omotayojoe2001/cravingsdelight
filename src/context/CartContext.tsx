@@ -19,7 +19,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('cart-items');
-      return saved ? JSON.parse(saved) : [];
+      if (saved) {
+        const parsedItems = JSON.parse(saved);
+        // Filter out any test items or items with 'testing' in the name
+        const validItems = parsedItems.filter((item: CartItem) => 
+          !item.name.toLowerCase().includes('testing') && 
+          !item.name.toLowerCase().includes('test')
+        );
+        return validItems;
+      }
     }
     return [];
   });
@@ -83,7 +91,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
     );
   };
 
-  const clearCart = () => setItems([]);
+  const clearCart = () => {
+    setItems([]);
+    localStorage.removeItem('cart-items');
+  };
 
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
   const totalAmount = items.reduce(

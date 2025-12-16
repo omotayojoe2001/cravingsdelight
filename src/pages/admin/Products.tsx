@@ -180,13 +180,13 @@ export default function Products() {
                   />
                 </TableHead>
                 <TableHead className="w-16">Image</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Price</TableHead>
-                <TableHead>Active</TableHead>
-                <TableHead>Catering</TableHead>
-                <TableHead>Actions</TableHead>
+                <TableHead className="w-40">Name</TableHead>
+                <TableHead className="w-48">Description</TableHead>
+                <TableHead className="w-24">Category</TableHead>
+                <TableHead className="w-20">Price</TableHead>
+                <TableHead className="w-16">Active</TableHead>
+                <TableHead className="w-20">Catering</TableHead>
+                <TableHead className="w-20">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -198,8 +198,8 @@ export default function Products() {
                 </TableRow>
               ) : (
                 filteredProducts.map((product) => (
-                  <TableRow key={product.id}>
-                    <TableCell>
+                  <TableRow key={product.id} className="py-2">
+                    <TableCell className="py-2">
                       <input
                         type="checkbox"
                         checked={selectedProducts.includes(product.id)}
@@ -207,35 +207,36 @@ export default function Products() {
                         className="rounded"
                       />
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="py-2">
                       {product.image ? (
-                        <img src={product.image} alt={product.name} className="w-12 h-12 object-cover rounded" />
+                        <img src={product.image} alt={product.name} className="w-10 h-10 object-cover rounded" />
                       ) : (
-                        <div className="w-12 h-12 bg-muted rounded flex items-center justify-center">
-                          <span className="text-xs text-muted-foreground">No image</span>
+                        <div className="w-10 h-10 bg-muted rounded flex items-center justify-center">
+                          <span className="text-xs text-muted-foreground">No</span>
                         </div>
                       )}
                     </TableCell>
-                    <TableCell className="font-medium">{product.name}</TableCell>
-                    <TableCell className="max-w-xs truncate">{product.description}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{product.category}</Badge>
+                    <TableCell className="font-medium text-sm py-2 truncate">{product.name}</TableCell>
+                    <TableCell className="text-sm py-2 truncate max-w-48">{product.description}</TableCell>
+                    <TableCell className="py-2">
+                      <Badge variant="outline" className="text-xs">{product.category}</Badge>
                     </TableCell>
-                    <TableCell className="font-bold">£{product.price.toFixed(2)}</TableCell>
-                    <TableCell>
+                    <TableCell className="font-bold text-sm py-2">£{product.price.toFixed(2)}</TableCell>
+                    <TableCell className="py-2">
                       <Switch
                         checked={product.is_active}
                         onCheckedChange={() => toggleActive(product.id, product.is_active)}
+                        className="scale-75"
                       />
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="py-2">
                       {product.available_for_catering ? (
-                        <Badge className="bg-blue-100 text-blue-800">Yes</Badge>
+                        <Badge className="bg-blue-100 text-blue-800 text-xs">Yes</Badge>
                       ) : (
-                        <Badge variant="secondary">No</Badge>
+                        <Badge variant="secondary" className="text-xs">No</Badge>
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="py-2">
                       <Button
                         size="sm"
                         variant="outline"
@@ -243,9 +244,9 @@ export default function Products() {
                           setEditingProduct(product);
                           setModalOpen(true);
                         }}
+                        className="h-7 w-7 p-0"
                       >
-                        <Edit className="h-3 w-3 mr-1" />
-                        Edit
+                        <Edit className="h-3 w-3" />
                       </Button>
                     </TableCell>
                   </TableRow>

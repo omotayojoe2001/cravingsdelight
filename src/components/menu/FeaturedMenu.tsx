@@ -1,12 +1,38 @@
 import { motion } from "framer-motion";
-import { menuItems } from "@/data/menu";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
 import { MenuCard } from "./MenuCard";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
 
+interface Product {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  category: string;
+  image: string;
+  is_active: boolean;
+}
+
 export function FeaturedMenu() {
-  const featuredItems = menuItems.slice(0, 6);
+  const [featuredItems, setFeaturedItems] = useState<Product[]>([]);
+
+  useEffect(() => {
+    fetchFeaturedProducts();
+  }, []);
+
+  async function fetchFeaturedProducts() {
+    const { data } = await supabase
+      .from('products')
+      .select('*')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+      .limit(6);
+    
+    if (data) setFeaturedItems(data);
+  }
 
   return (
     <section className="py-16 md:py-24">

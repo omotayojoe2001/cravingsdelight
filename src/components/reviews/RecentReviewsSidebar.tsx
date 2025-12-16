@@ -9,7 +9,7 @@ interface Review {
   customer_email: string | null;
   rating: number;
   review_text: string;
-  created_at: string;
+  submitted_at: string;
 }
 
 export function RecentReviewsSidebar() {
@@ -24,7 +24,7 @@ export function RecentReviewsSidebar() {
       .from('reviews')
       .select('*')
       .eq('is_approved', true)
-      .order('created_at', { ascending: false })
+      .order('submitted_at', { ascending: false })
       .limit(5);
 
     if (data) setReviews(data);
@@ -60,7 +60,7 @@ export function RecentReviewsSidebar() {
   if (reviews.length === 0) return null;
 
   return (
-    <div className="bg-white rounded-lg border p-6 sticky top-24">
+    <div className="bg-white rounded-lg border p-6 lg:sticky lg:top-24">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-display text-lg font-bold">Recent Reviews</h3>
         <Link to="/reviews" className="text-sm text-primary hover:underline">
@@ -94,7 +94,7 @@ export function RecentReviewsSidebar() {
             </p>
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <Clock className="h-3 w-3" />
-              {timeAgo(review.created_at)}
+              {timeAgo(review.submitted_at)}
             </div>
           </div>
         ))}

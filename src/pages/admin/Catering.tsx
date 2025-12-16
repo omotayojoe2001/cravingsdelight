@@ -6,8 +6,10 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Search, Filter } from 'lucide-react';
+import { Search, Filter, Eye, FileText } from 'lucide-react';
+import InvoiceModal from '@/components/admin/InvoiceModal';
 
 interface CateringRequest {
   id: string;
@@ -35,6 +37,10 @@ export default function Catering() {
   const [filteredRequests, setFilteredRequests] = useState<CateringRequest[]>([]);
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedRequest, setSelectedRequest] = useState<CateringRequest | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [invoiceRequest, setInvoiceRequest] = useState<CateringRequest | null>(null);
+  const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
 
   useEffect(() => {
     fetchRequests();
@@ -71,13 +77,30 @@ export default function Catering() {
   }
 
   async function updateStatus(id: string, status: string) {
+    const request = requests.find(r => r.id === id);
+    if (!request) return;
+    
     const { error } = await supabase.from('catering_requests').update({ status }).eq('id', id);
     if (error) {
       toast.error('Failed to update');
-    } else {
-      toast.success('Status updated');
-      fetchRequests();
+      return;
     }
+    
+    // Send status update email
+    try {
+      const { sendStatusUpdateEmail } = await import('@/lib/email');
+      await sendStatusUpdateEmail(request.requester_email, {
+        customer_name: request.requester_name,
+        status,
+        event_location: request.event_location,
+        event_date: request.event_date
+      });
+    } catch (emailError) {
+      console.error('Failed to send status email:', emailError);
+    }
+    
+    toast.success('Status updated and customer notified');
+    fetchRequests();
   }
 
   return (
@@ -94,9 +117,9 @@ export default function Catering() {
           <div className="flex gap-4">
             <div className="text-center">
               <div className="text-lg font-bold text-green-600">
-                {requests.filter(r => r.status === 'confirmed').length}
+                {requests.filter(r => r.status === 'delivered').length}
               </div>
-              <div className="text-xs text-muted-foreground">Confirmed</div>
+              <div className="text-xs text-muted-foreground">Delivered</div>
             </div>
             <div className="text-center">
               <div className="text-lg font-bold text-yellow-600">
@@ -127,135 +150,298 @@ export default function Catering() {
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="in_review">In Review</SelectItem>
-                <SelectItem value="contacted">Contacted</SelectItem>
-                <SelectItem value="confirmed">Confirmed</SelectItem>
+                <SelectItem value="processing">Processing</SelectItem>
+                <SelectItem value="on_the_way">On the Way</SelectItem>
+                <SelectItem value="delivered">Delivered</SelectItem>
                 <SelectItem value="cancelled">Cancelled</SelectItem>
               </SelectContent>
             </Select>
           </div>
         </div>
 
-        {/* Catering Requests Table - Google Sheets Style */}
-        <div className="bg-white border rounded-lg overflow-hidden">
-          <Table>
+        {/* Catering Requests Table - Improved Layout */}
+        <div className="bg-white border rounded-lg overflow-hidden shadow-sm">
+          <div className="overflow-x-auto">
+            <Table className="min-w-full">
             <TableHeader>
-              <TableRow>
-                <TableHead>Request ID</TableHead>
-                <TableHead>Customer</TableHead>
-                <TableHead>Contact</TableHead>
-                <TableHead>Event Details</TableHead>
-                <TableHead>Location</TableHead>
-                <TableHead>Guests</TableHead>
-                <TableHead>Items/Budget</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Actions</TableHead>
+              <TableRow className="bg-gray-50 border-b">
+                <TableHead className="font-semibold text-gray-700 py-3 w-16">ID</TableHead>
+                <TableHead className="font-semibold text-gray-700 py-3 w-48">Customer</TableHead>
+                <TableHead className="font-semibold text-gray-700 py-3 w-32">Contact</TableHead>
+                <TableHead className="font-semibold text-gray-700 py-3 w-28">Event</TableHead>
+                <TableHead className="font-semibold text-gray-700 py-3 w-24">Items</TableHead>
+                <TableHead className="font-semibold text-gray-700 py-3 w-24">Status</TableHead>
+                <TableHead className="font-semibold text-gray-700 py-3 w-32">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredRequests.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                     No catering requests found
                   </TableCell>
                 </TableRow>
               ) : (
                 filteredRequests.map((req) => {
-                  const selectedProducts = req.selected_products ? JSON.parse(req.selected_products) : [];
+                  // Parse the requirements to extract product details
+                  const parseRequirements = (requirements: string) => {
+                    const lines = requirements.split('\n');
+                    const eventTypeMatch = lines.find(line => line.startsWith('Event Type:'));
+                    const budgetMatch = lines.find(line => line.startsWith('Budget:'));
+                    const selectedItemsStart = lines.findIndex(line => line.includes('Selected Items:'));
+                    const specialReqStart = lines.findIndex(line => line.includes('Special Requirements:'));
+                    
+                    const eventType = eventTypeMatch ? eventTypeMatch.replace('Event Type: ', '') : '';
+                    const budget = budgetMatch ? budgetMatch.replace('Budget: ', '') : '';
+                    
+                    let selectedItems: string[] = [];
+                    if (selectedItemsStart !== -1) {
+                      const itemsEnd = specialReqStart !== -1 ? specialReqStart : lines.length;
+                      selectedItems = lines.slice(selectedItemsStart + 1, itemsEnd)
+                        .filter(line => line.trim().startsWith('-'))
+                        .map(line => line.replace('- ', ''));
+                    }
+                    
+                    let specialRequirements = '';
+                    if (specialReqStart !== -1) {
+                      const reqLines = lines.slice(specialReqStart + 1)
+                        .filter(line => line.trim() !== '' && line.trim() !== 'None')
+                        .map(line => line.trim());
+                      specialRequirements = reqLines.join('\n').trim();
+                    }
+                    
+                    return { eventType, budget, selectedItems, specialRequirements };
+                  };
+                  
+                  const parsed = parseRequirements(req.requirements || '');
+                  
                   return (
-                    <TableRow key={req.id}>
-                      <TableCell className="font-mono">#{req.id.slice(0, 8)}</TableCell>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">{req.requester_name}</div>
-                          {req.event_type && (
-                            <Badge variant="outline" className="text-xs mt-1">
-                              {req.event_type}
-                            </Badge>
-                          )}
+                    <TableRow key={req.id} className="hover:bg-gray-50 border-b border-gray-100">
+                      <TableCell className="font-mono text-xs py-2 px-2">#{req.id.slice(0, 6)}</TableCell>
+                      
+                      <TableCell className="py-2 px-2">
+                        <div className="space-y-1">
+                          <div className="font-medium text-sm truncate">{req.requester_name}</div>
+                          <div className="text-xs text-muted-foreground truncate">{req.event_location}</div>
+                          <div className="text-xs">{req.total_estimated_guests || req.number_of_guests} guests</div>
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <div className="text-sm">
-                          <div>{req.requester_email}</div>
+                      
+                      <TableCell className="py-2 px-2">
+                        <div className="text-xs space-y-1">
+                          <div className="truncate">{req.requester_email.split('@')[0]}</div>
                           <div className="text-muted-foreground">{req.requester_phone}</div>
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <div className="text-sm">
+                      
+                      <TableCell className="py-2 px-2">
+                        <div className="text-xs space-y-1">
                           <div className="font-medium">
                             {req.event_date ? new Date(req.event_date).toLocaleDateString('en-GB') : 'TBD'}
                           </div>
-                          {req.event_time && (
-                            <div className="text-muted-foreground">{req.event_time}</div>
-                          )}
+                          <div className="text-muted-foreground">{req.event_time || 'TBD'}</div>
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <div className="text-sm max-w-xs truncate">{req.event_location}</div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="font-medium">{req.total_estimated_guests || req.number_of_guests}</div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm">
-                          {selectedProducts.length > 0 ? (
-                            <div>
-                              <div className="font-medium">{selectedProducts.length} items</div>
-                              <div className="text-muted-foreground">
-                                {selectedProducts.slice(0, 2).map((item: any) => item.name).join(', ')}
-                                {selectedProducts.length > 2 && '...'}
-                              </div>
-                            </div>
+                      
+                      <TableCell className="py-2 px-2">
+                        <div className="text-xs">
+                          {parsed.selectedItems.length > 0 ? (
+                            <div className="font-medium">{parsed.selectedItems.length} items</div>
                           ) : req.product_name ? (
-                            <Badge variant="outline">{req.product_name}</Badge>
+                            <div className="font-medium text-blue-800 truncate">{req.product_name}</div>
                           ) : (
-                            <div>
-                              {req.budget_range && (
-                                <div className="text-muted-foreground">{req.budget_range}</div>
-                              )}
-                            </div>
+                            <div className="text-muted-foreground">None</div>
                           )}
                         </div>
                       </TableCell>
-                      <TableCell>
+                      
+                      <TableCell className="py-2 px-2">
                         <Badge className={
-                          req.status === 'confirmed' ? 'bg-green-100 text-green-800' :
-                          req.status === 'contacted' ? 'bg-blue-100 text-blue-800' :
-                          req.status === 'in_review' ? 'bg-yellow-100 text-yellow-800' :
+                          req.status === 'delivered' ? 'bg-green-100 text-green-800' :
+                          req.status === 'on_the_way' ? 'bg-blue-100 text-blue-800' :
+                          req.status === 'processing' ? 'bg-yellow-100 text-yellow-800' :
                           req.status === 'cancelled' ? 'bg-red-100 text-red-800' :
                           'bg-gray-100 text-gray-800'
                         }>
                           {req.status.replace('_', ' ')}
                         </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm">
+                        <div className="text-xs text-muted-foreground mt-1">
                           {new Date(req.submitted_at).toLocaleDateString('en-GB')}
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <Select value={req.status} onValueChange={(val) => updateStatus(req.id, val)}>
-                          <SelectTrigger className="w-32 h-8">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="pending">Pending</SelectItem>
-                            <SelectItem value="in_review">In Review</SelectItem>
-                            <SelectItem value="contacted">Contacted</SelectItem>
-                            <SelectItem value="confirmed">Confirmed</SelectItem>
-                            <SelectItem value="cancelled">Cancelled</SelectItem>
-                          </SelectContent>
-                        </Select>
+                      
+                      <TableCell className="py-2 px-2">
+                        <div className="flex gap-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setSelectedRequest(req);
+                              setIsModalOpen(true);
+                            }}
+                            className="h-7 w-7 p-0"
+                          >
+                            <Eye className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setInvoiceRequest(req);
+                              setIsInvoiceModalOpen(true);
+                            }}
+                            className="h-7 w-7 p-0"
+                            title="Send Invoice"
+                          >
+                            <FileText className="h-3 w-3" />
+                          </Button>
+                          <Select value={req.status} onValueChange={(val) => updateStatus(req.id, val)}>
+                            <SelectTrigger className="w-20 h-7 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="pending">Pending</SelectItem>
+                              <SelectItem value="processing">Processing</SelectItem>
+                              <SelectItem value="on_the_way">On Way</SelectItem>
+                              <SelectItem value="delivered">Delivered</SelectItem>
+                              <SelectItem value="cancelled">Cancelled</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
                 })
               )}
             </TableBody>
-          </Table>
+            </Table>
+          </div>
         </div>
+
+        {/* Details Modal */}
+        <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Catering Request Details</DialogTitle>
+            </DialogHeader>
+            {selectedRequest && (() => {
+              const parsed = (() => {
+                const requirements = selectedRequest.requirements || '';
+                const lines = requirements.split('\n');
+                const eventTypeMatch = lines.find(line => line.startsWith('Event Type:'));
+                const budgetMatch = lines.find(line => line.startsWith('Budget:'));
+                const selectedItemsStart = lines.findIndex(line => line.includes('Selected Items:'));
+                const specialReqStart = lines.findIndex(line => line.includes('Special Requirements:'));
+                
+                const eventType = eventTypeMatch ? eventTypeMatch.replace('Event Type: ', '') : '';
+                const budget = budgetMatch ? budgetMatch.replace('Budget: ', '') : '';
+                
+                let selectedItems: string[] = [];
+                if (selectedItemsStart !== -1) {
+                  const itemsEnd = specialReqStart !== -1 ? specialReqStart : lines.length;
+                  selectedItems = lines.slice(selectedItemsStart + 1, itemsEnd)
+                    .filter(line => line.trim().startsWith('-'))
+                    .map(line => line.replace('- ', ''));
+                }
+                
+                let specialRequirements = '';
+                if (specialReqStart !== -1) {
+                  const reqLines = lines.slice(specialReqStart + 1)
+                    .filter(line => line.trim() !== '' && line.trim() !== 'None')
+                    .map(line => line.trim());
+                  specialRequirements = reqLines.join('\n').trim();
+                }
+                
+                return { eventType, budget, selectedItems, specialRequirements };
+              })();
+              
+              return (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      <div>
+                        <h3 className="font-semibold mb-2">Customer Information</h3>
+                        <div className="space-y-2 text-sm">
+                          <div><strong>Name:</strong> {selectedRequest.requester_name}</div>
+                          <div><strong>Email:</strong> {selectedRequest.requester_email}</div>
+                          <div><strong>Phone:</strong> {selectedRequest.requester_phone}</div>
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <h3 className="font-semibold mb-2">Event Details</h3>
+                        <div className="space-y-2 text-sm">
+                          <div><strong>Type:</strong> {parsed.eventType || 'Not specified'}</div>
+                          <div><strong>Date:</strong> {selectedRequest.event_date ? new Date(selectedRequest.event_date).toLocaleDateString('en-GB') : 'TBD'}</div>
+                          <div><strong>Time:</strong> {selectedRequest.event_time || 'TBD'}</div>
+                          <div><strong>Location:</strong> {selectedRequest.event_location}</div>
+                          <div><strong>Guests:</strong> {selectedRequest.total_estimated_guests || selectedRequest.number_of_guests}</div>
+                          <div><strong>Budget:</strong> {parsed.budget || 'Not specified'}</div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      <div>
+                        <h3 className="font-semibold mb-2">Selected Items</h3>
+                        {parsed.selectedItems.length > 0 ? (
+                          <div className="space-y-2">
+                            {parsed.selectedItems.map((item, idx) => (
+                              <div key={idx} className="bg-muted p-3 rounded text-sm">
+                                {item}
+                              </div>
+                            ))}
+                          </div>
+                        ) : selectedRequest.product_name ? (
+                          <div className="bg-blue-50 border border-blue-200 p-3 rounded">
+                            <div className="font-medium text-blue-800">{selectedRequest.product_name}</div>
+                            <div className="text-sm text-blue-600">Single product catering request</div>
+                          </div>
+                        ) : (
+                          <div className="text-muted-foreground text-sm">No items specified</div>
+                        )}
+                      </div>
+                      
+                      <div>
+                        <h3 className="font-semibold mb-2">Allergies & Special Requirements</h3>
+                        <div className="bg-yellow-50 border border-yellow-200 p-3 rounded text-sm">
+                          {parsed.specialRequirements || 'None'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="border-t pt-4">
+                    <div className="flex justify-between items-center">
+                      <div className="text-sm text-muted-foreground">
+                        Submitted: {new Date(selectedRequest.submitted_at).toLocaleString('en-GB')}
+                      </div>
+                      <Badge className={
+                        selectedRequest.status === 'confirmed' ? 'bg-green-100 text-green-800' :
+                        selectedRequest.status === 'contacted' ? 'bg-blue-100 text-blue-800' :
+                        selectedRequest.status === 'in_review' ? 'bg-yellow-100 text-yellow-800' :
+                        selectedRequest.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                        'bg-gray-100 text-gray-800'
+                      }>
+                        {selectedRequest.status.replace('_', ' ')}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+          </DialogContent>
+        </Dialog>
+
+        {/* Invoice Modal */}
+        <InvoiceModal
+          isOpen={isInvoiceModalOpen}
+          onClose={() => {
+            setIsInvoiceModalOpen(false);
+            setInvoiceRequest(null);
+          }}
+          cateringRequest={invoiceRequest}
+        />
       </div>
     </AdminLayout>
   );

@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/lib/supabase';
+import { sendCateringConfirmation } from '@/lib/email';
 import { toast } from 'sonner';
 import { Calendar, Users, MapPin, Send } from 'lucide-react';
 
@@ -55,6 +56,21 @@ export function ProductCateringForm({ product }: ProductCateringFormProps) {
       });
 
       if (error) throw error;
+
+      // Send email notifications
+      try {
+        await sendCateringConfirmation(formData.requester_email, {
+          requester_name: formData.requester_name,
+          requester_phone: formData.requester_phone,
+          event_date: formData.event_date,
+          event_time: formData.event_time,
+          event_location: formData.event_location,
+          number_of_guests: formData.number_of_guests,
+          requirements: formData.requirements
+        });
+      } catch (emailError) {
+        console.error('Email notification failed:', emailError);
+      }
 
       toast.success(`Catering request for ${product.name} submitted successfully!`);
       setFormData({

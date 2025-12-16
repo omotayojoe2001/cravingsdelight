@@ -5,7 +5,7 @@ import { setupStorage } from '@/lib/storage-setup';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { LayoutDashboard, ShoppingBag, Package, Star, Calendar, BarChart3, Settings, LogOut, Menu, X } from 'lucide-react';
+import { LayoutDashboard, ShoppingBag, Package, Star, Calendar, BarChart3, Settings, LogOut, Menu, X, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface AdminLayoutProps {
@@ -59,6 +59,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     { path: '/admin/products', icon: Package, label: 'Products' },
     { path: '/admin/reviews', icon: Star, label: 'Reviews' },
     { path: '/admin/catering', icon: Calendar, label: 'Catering' },
+    { path: '/admin/invoices', icon: FileText, label: 'Invoices' },
     { path: '/admin/analytics', icon: BarChart3, label: 'Analytics' },
     { path: '/admin/settings', icon: Settings, label: 'Settings' }
   ];

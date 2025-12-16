@@ -1,7 +1,6 @@
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
 import { motion } from "framer-motion";
-import { menuItems } from "@/data/menu";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Plus, Flame } from "lucide-react";
 import { useState, useEffect } from "react";
@@ -22,15 +21,6 @@ const ProductDetail = () => {
   useEffect(() => {
     const fetchProduct = async () => {
       try {
-        // First try to find in static menu items
-        const staticProduct = menuItems.find((item) => item.id === id);
-        if (staticProduct) {
-          setProduct(staticProduct);
-          setLoading(false);
-          return;
-        }
-        
-        // Then try to fetch from database
         const { data, error } = await supabase
           .from('products')
           .select('*')

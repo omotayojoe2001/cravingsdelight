@@ -18,6 +18,7 @@ import { Elements, CardElement, useStripe, useElements } from '@stripe/react-str
 import { stripeConfig } from '@/config/stripe';
 import { supabase } from '@/lib/supabase';
 import { calculateDeliveryFee, isHullPostcode } from '@/utils/deliveryFee';
+import { sendOrderConfirmation } from '@/lib/email';
 
 // Initialize Stripe with publishable key
 if (stripeConfig.publishableKey) {
@@ -378,6 +379,24 @@ function CheckoutFormContent() {
           toast.warning('Order processed but failed to save to database');
         } else {
           console.log('✅ Order saved to database successfully');
+          
+          // Send email notifications
+          try {
+            await sendOrderConfirmation(formData.email, {
+              customer_name: formData.fullName,
+              items: items.map(item => ({
+                name: item.name,
+                quantity: item.quantity,
+                price: (item.price * item.quantity).toFixed(2)
+              })),
+              total: finalTotal.toFixed(2),
+              delivery_address: `${formData.address}, ${formData.city}, ${formData.postcode}`,
+              phone: formData.phone
+            });
+            console.log('✅ Email notifications sent');
+          } catch (emailError) {
+            console.error('❌ Email notification failed:', emailError);
+          }
         }
       } catch (dbError) {
         console.error('❌ Database operation failed:', dbError);

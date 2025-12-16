@@ -23,6 +23,8 @@ import AdminOrderDetail from "./pages/admin/OrderDetail";
 import AdminProducts from "./pages/admin/Products";
 import AdminReviews from "./pages/admin/Reviews";
 import AdminCatering from "./pages/admin/Catering";
+import AdminInvoices from "./pages/admin/Invoices";
+import AdminDatabaseSetup from "./pages/admin/DatabaseSetup";
 import AdminAnalytics from "./pages/Analytics";
 import AdminSettings from "./pages/admin/Settings";
 import AdminProductEdit from "./pages/admin/ProductEdit";
@@ -58,6 +60,8 @@ const App = () => (
             <Route path="/admin/products/:id" element={<AdminProductEdit />} />
             <Route path="/admin/reviews" element={<AdminReviews />} />
             <Route path="/admin/catering" element={<AdminCatering />} />
+            <Route path="/admin/invoices" element={<AdminInvoices />} />
+            <Route path="/admin/database-setup" element={<AdminDatabaseSetup />} />
             <Route path="/admin/analytics" element={<AdminAnalytics />} />
             <Route path="/admin/settings" element={<AdminSettings />} />
             <Route path="/reviews" element={<Reviews />} />

@@ -13,7 +13,7 @@ interface Review {
   customer_email: string | null;
   rating: number;
   review_text: string;
-  created_at: string;
+  submitted_at: string;
 }
 
 export default function Reviews() {
@@ -29,7 +29,7 @@ export default function Reviews() {
       .from('reviews')
       .select('*')
       .eq('is_approved', true)
-      .order('created_at', { ascending: false });
+      .order('submitted_at', { ascending: false });
 
     if (data) setReviews(data);
     setLoading(false);
@@ -168,7 +168,7 @@ export default function Reviews() {
 
                 <div className="flex items-center gap-1 text-sm text-muted-foreground">
                   <Clock className="h-4 w-4" />
-                  {timeAgo(review.created_at)}
+                  {timeAgo(review.submitted_at)}
                 </div>
               </motion.div>
             ))}

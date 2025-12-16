@@ -173,15 +173,15 @@ export default function Orders() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Order ID</TableHead>
-                <TableHead>Customer</TableHead>
-                <TableHead>Contact</TableHead>
-                <TableHead>Address</TableHead>
-                <TableHead>Items</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Actions</TableHead>
+                <TableHead className="w-16">ID</TableHead>
+                <TableHead className="w-32">Customer</TableHead>
+                <TableHead className="w-28">Contact</TableHead>
+                <TableHead className="w-36">Address</TableHead>
+                <TableHead className="w-20">Items</TableHead>
+                <TableHead className="w-24">Amount</TableHead>
+                <TableHead className="w-24">Status</TableHead>
+                <TableHead className="w-24">Date</TableHead>
+                <TableHead className="w-28">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -196,63 +196,59 @@ export default function Orders() {
                   const orderDate = new Date(order.created_at);
                   const orderItems = order.order_items ? JSON.parse(order.order_items) : [];
                   return (
-                    <TableRow key={order.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/admin/orders/${order.id}`)}>
-                      <TableCell className="font-mono">#{order.id.slice(0, 8)}</TableCell>
-                      <TableCell>
+                    <TableRow key={order.id} className="cursor-pointer hover:bg-muted/50 py-2" onClick={() => navigate(`/admin/orders/${order.id}`)}>
+                      <TableCell className="font-mono text-xs py-2">#{order.id.slice(0, 6)}</TableCell>
+                      <TableCell className="py-2">
                         <div>
-                          <div className="font-medium">{order.customer_name}</div>
+                          <div className="font-medium text-sm">{order.customer_name}</div>
                           {order.allergies && (
                             <div className="text-red-600 text-xs">⚠️ Allergies</div>
                           )}
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <div className="text-sm">
-                          <div>{order.customer_email}</div>
+                      <TableCell className="py-2">
+                        <div className="text-xs">
+                          <div className="truncate max-w-24">{order.customer_email.split('@')[0]}</div>
                           <div className="text-muted-foreground">{order.customer_phone}</div>
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <div className="text-sm max-w-xs">
-                          <div>{order.delivery_address}</div>
-                          <div className="text-muted-foreground">{order.delivery_city}, {order.delivery_postcode}</div>
+                      <TableCell className="py-2">
+                        <div className="text-xs max-w-32">
+                          <div className="truncate">{order.delivery_address}</div>
+                          <div className="text-muted-foreground truncate">{order.delivery_postcode}</div>
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <div className="text-sm">
+                      <TableCell className="py-2">
+                        <div className="text-xs">
                           <div className="font-medium">{orderItems.length} items</div>
-                          <div className="text-muted-foreground">
-                            {orderItems.slice(0, 2).map((item: any) => item.name).join(', ')}
-                            {orderItems.length > 2 && '...'}
-                          </div>
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="py-2">
                         <div>
-                          <div className="font-bold">£{order.total_amount.toFixed(2)}</div>
+                          <div className="font-bold text-sm">£{order.total_amount.toFixed(2)}</div>
                           <div className="text-xs text-muted-foreground">
-                            Sub: £{order.subtotal_amount?.toFixed(2) || '0.00'} + Del: £{order.delivery_fee?.toFixed(2) || '0.00'}
+                            +£{order.delivery_fee?.toFixed(2) || '0.00'} del
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <Badge variant={order.order_status === 'delivered' ? 'default' : 'secondary'}>
+                      <TableCell className="py-2">
+                        <Badge variant={order.order_status === 'delivered' ? 'default' : 'secondary'} className="text-xs">
                           {order.order_status}
                         </Badge>
                       </TableCell>
-                      <TableCell>
-                        <div className="text-sm">
+                      <TableCell className="py-2">
+                        <div className="text-xs">
                           <div>{orderDate.toLocaleDateString('en-GB')}</div>
                           <div className="text-muted-foreground">{orderDate.toLocaleTimeString('en-GB', {hour: '2-digit', minute:'2-digit'})}</div>
                         </div>
                       </TableCell>
-                      <TableCell onClick={(e) => e.stopPropagation()}>
-                        <div className="flex gap-2">
-                          <Button size="sm" variant="outline" onClick={() => navigate(`/admin/orders/${order.id}`)}>
+                      <TableCell onClick={(e) => e.stopPropagation()} className="py-2">
+                        <div className="flex gap-1">
+                          <Button size="sm" variant="outline" onClick={() => navigate(`/admin/orders/${order.id}`)} className="h-7 w-7 p-0">
                             <Eye className="h-3 w-3" />
                           </Button>
                           <Select onValueChange={(val) => updateStatus(order.id, val)}>
-                            <SelectTrigger className="w-24 h-8">
+                            <SelectTrigger className="w-20 h-7 text-xs">
                               <SelectValue placeholder="Update" />
                             </SelectTrigger>
                             <SelectContent>

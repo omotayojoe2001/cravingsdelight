@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/lib/supabase';
+import { sendCateringConfirmation } from '@/lib/email';
 import { toast } from 'sonner';
 import { Calendar, Users, MapPin, Send, Plus, Minus, ShoppingCart, Search, Filter } from 'lucide-react';
 
@@ -129,6 +130,21 @@ export function StreamlinedCateringForm() {
       });
 
       if (error) throw error;
+
+      // Send email notifications
+      try {
+        await sendCateringConfirmation(formData.requester_email, {
+          requester_name: formData.requester_name,
+          requester_phone: formData.requester_phone,
+          event_date: formData.event_date,
+          event_time: formData.event_time,
+          event_location: formData.event_location,
+          number_of_guests: formData.total_estimated_guests,
+          requirements: formData.requirements
+        });
+      } catch (emailError) {
+        console.error('Email notification failed:', emailError);
+      }
 
       toast.success('Catering request submitted successfully!');
       setStep(1);
@@ -513,7 +529,7 @@ export function StreamlinedCateringForm() {
                   </div>
 
                   <div>
-                    <Label htmlFor="requirements">Special Requirements</Label>
+                    <Label htmlFor="requirements">Any Allergies and Special Requirements</Label>
                     <Textarea
                       id="requirements"
                       name="requirements"
@@ -521,7 +537,7 @@ export function StreamlinedCateringForm() {
                       onChange={(e) => setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }))}
                       rows={3}
                       className="mt-1"
-                      placeholder="Dietary restrictions, allergies, special requests..."
+                      placeholder="Please list any allergies, dietary restrictions, or special requirements..."
                     />
                   </div>
 

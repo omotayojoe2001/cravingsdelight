@@ -42,9 +42,22 @@ export function ReviewSection() {
         return;
       } else {
         console.log('✅ REVIEW SAVED:', data);
+        
+        // Send email notification to admin
+        try {
+          const { sendReviewNotification } = await import('@/lib/email');
+          await sendReviewNotification({
+            customer_name: formData.name || 'Anonymous',
+            customer_email: formData.email,
+            rating: rating || 5,
+            review_text: formData.reviewText
+          });
+        } catch (emailError) {
+          console.error('Email notification failed:', emailError);
+        }
       }
 
-      toast.success("Thank you for your review!", {
+      toast.success("Thank you for your feedback!", {
         description: "Your review is pending approval and will appear soon.",
       });
 
