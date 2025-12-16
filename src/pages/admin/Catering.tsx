@@ -322,7 +322,37 @@ export default function Catering() {
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
           <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Catering Request Details</DialogTitle>
+              <DialogTitle className="flex items-center justify-between">
+                <span>Catering Request Details</span>
+                <div className="flex gap-2">
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => {
+                      const currentIndex = filteredRequests.findIndex(r => r.id === selectedRequest?.id);
+                      if (currentIndex > 0) {
+                        setSelectedRequest(filteredRequests[currentIndex - 1]);
+                      }
+                    }}
+                    disabled={!selectedRequest || filteredRequests.findIndex(r => r.id === selectedRequest.id) === 0}
+                  >
+                    Previous
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => {
+                      const currentIndex = filteredRequests.findIndex(r => r.id === selectedRequest?.id);
+                      if (currentIndex < filteredRequests.length - 1) {
+                        setSelectedRequest(filteredRequests[currentIndex + 1]);
+                      }
+                    }}
+                    disabled={!selectedRequest || filteredRequests.findIndex(r => r.id === selectedRequest.id) === filteredRequests.length - 1}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </DialogTitle>
             </DialogHeader>
             {selectedRequest && (() => {
               const parsed = (() => {
