@@ -772,7 +772,7 @@ export default function InvoiceModal({ isOpen, onClose, cateringRequest }: Invoi
                 <div className="bg-yellow-50 border border-yellow-200 p-4 rounded">
                   <h4 className="font-semibold text-yellow-800 mb-2">Review Before Sending</h4>
                   <div className="text-sm text-yellow-700 space-y-1">
-                    <p>• Customer: {customerData.requester_name} ({customerData.requester_email})</p>
+                    <p>• Customer: {cateringRequest?.requester_name || manualCustomer.name} ({cateringRequest?.requester_email || manualCustomer.email})</p>
                     <p>• Invoice Items: {items.filter(item => item.name).length} items</p>
                     <p>• Total Amount: £{totalAmount.toFixed(2)}</p>
                     <p>• Payment Method: {paymentMethod === 'bank_transfer' ? 'Bank Transfer' : paymentMethod === 'paypal' ? 'PayPal' : 'Stripe Payment Link'}</p>
