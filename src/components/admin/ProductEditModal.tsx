@@ -67,11 +67,13 @@ export function ProductEditModal({ product, open, onClose, onSave }: ProductEdit
   }, [product, open]);
 
   const handleSave = async () => {
+    console.log('Saving product...', formData);
     setSaving(true);
     
     let error;
     if (product) {
       // Update existing product
+      console.log('Updating product:', product.id);
       const { error: updateError } = await supabase
         .from('products')
         .update(formData)
@@ -79,15 +81,20 @@ export function ProductEditModal({ product, open, onClose, onSave }: ProductEdit
       error = updateError;
     } else {
       // Create new product
-      const { error: insertError } = await supabase
+      console.log('Creating new product');
+      const { data, error: insertError } = await supabase
         .from('products')
-        .insert(formData);
+        .insert(formData)
+        .select();
       error = insertError;
+      console.log('Insert result:', { data, error });
     }
 
     if (error) {
-      toast.error(product ? 'Failed to update product' : 'Failed to create product');
+      console.error('❌ PRODUCT SAVE FAILED:', error);
+      toast.error((product ? 'Failed to update product: ' : 'Failed to create product: ') + error.message);
     } else {
+      console.log('✅ PRODUCT SAVED');
       toast.success(product ? 'Product updated successfully' : 'Product created successfully');
       onSave();
       onClose();

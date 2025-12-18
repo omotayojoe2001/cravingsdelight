@@ -62,6 +62,15 @@ export default function InvoiceModal({ isOpen, onClose, cateringRequest }: Invoi
   const [selectedItems, setSelectedItems] = useState<any[]>([]);
   const [stripeOption, setStripeOption] = useState('generate'); // 'generate' or 'manual'
   const [manualPaymentLink, setManualPaymentLink] = useState('');
+  const [manualCustomer, setManualCustomer] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    event_date: '',
+    event_time: '',
+    event_location: '',
+    number_of_guests: 0
+  });
 
   useEffect(() => {
     if (cateringRequest) {
@@ -148,7 +157,21 @@ export default function InvoiceModal({ isOpen, onClose, cateringRequest }: Invoi
   };
 
   const handleSendInvoice = async () => {
-    if (!cateringRequest) return;
+    const customerData = cateringRequest || {
+      id: null,
+      requester_name: manualCustomer.name,
+      requester_email: manualCustomer.email,
+      requester_phone: manualCustomer.phone,
+      event_date: manualCustomer.event_date,
+      event_time: manualCustomer.event_time,
+      event_location: manualCustomer.event_location,
+      number_of_guests: manualCustomer.number_of_guests
+    };
+    
+    if (!customerData.requester_name || !customerData.requester_email) {
+      toast.error('Please fill in customer name and email');
+      return;
+    }
     
     setIsLoading(true);
     try {
@@ -156,14 +179,14 @@ export default function InvoiceModal({ isOpen, onClose, cateringRequest }: Invoi
       const { data: invoice, error } = await supabase
         .from('invoices')
         .insert({
-          catering_request_id: cateringRequest.id,
-          customer_name: cateringRequest.requester_name,
-          customer_email: cateringRequest.requester_email,
-          customer_phone: cateringRequest.requester_phone,
-          event_date: cateringRequest.event_date,
-          event_time: cateringRequest.event_time,
-          event_location: cateringRequest.event_location,
-          number_of_guests: cateringRequest.number_of_guests,
+          catering_request_id: customerData.id,
+          customer_name: customerData.requester_name,
+          customer_email: customerData.requester_email,
+          customer_phone: customerData.requester_phone,
+          event_date: customerData.event_date,
+          event_time: customerData.event_time,
+          event_location: customerData.event_location,
+          number_of_guests: customerData.number_of_guests,
           invoice_items: items,
           subtotal,
           tax_rate: taxRate,
@@ -199,10 +222,10 @@ export default function InvoiceModal({ isOpen, onClose, cateringRequest }: Invoi
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 invoice_number: invoice.invoice_number,
-                customer_email: cateringRequest.requester_email,
+                customer_email: customerData.requester_email,
                 amount: Math.round(totalAmount * 100), // Convert to cents
                 currency: 'gbp',
-                description: `Invoice ${invoice.invoice_number} - ${cateringRequest.event_location}`
+                description: `Invoice ${invoice.invoice_number} - ${customerData.event_location}`
               })
             });
             
@@ -231,12 +254,12 @@ export default function InvoiceModal({ isOpen, onClose, cateringRequest }: Invoi
       }
 
       // Send email to ONLY this customer
-      await sendInvoiceEmail(cateringRequest.requester_email, {
+      await sendInvoiceEmail(customerData.requester_email, {
         invoice_number: invoice.invoice_number,
-        customer_name: cateringRequest.requester_name,
-        customer_email: cateringRequest.requester_email, // Ensure single recipient
-        event_date: cateringRequest.event_date,
-        event_location: cateringRequest.event_location,
+        customer_name: customerData.requester_name,
+        customer_email: customerData.requester_email, // Ensure single recipient
+        event_date: customerData.event_date,
+        event_location: customerData.event_location,
         items,
         subtotal,
         tax_rate: taxRate,
@@ -262,18 +285,18 @@ export default function InvoiceModal({ isOpen, onClose, cateringRequest }: Invoi
     }
   };
 
-  if (!cateringRequest) return null;
+  // Allow modal to open even without catering request for manual invoice creation
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Send Invoice - {cateringRequest.requester_name}</DialogTitle>
+          <DialogTitle>Send Invoice - {cateringRequest?.requester_name || manualCustomer.name || 'New Customer'}</DialogTitle>
         </DialogHeader>
 
         <Tabs value={currentTab} onValueChange={setCurrentTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="booking">1. Review Booking</TabsTrigger>
+            <TabsTrigger value="booking">1. {cateringRequest ? 'Review Booking' : 'Customer Details'}</TabsTrigger>
             <TabsTrigger value="invoice">2. Invoice Items</TabsTrigger>
             <TabsTrigger value="payment">3. Payment Method</TabsTrigger>
             <TabsTrigger value="confirm">4. Send Invoice</TabsTrigger>
@@ -284,25 +307,88 @@ export default function InvoiceModal({ isOpen, onClose, cateringRequest }: Invoi
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <DollarSign className="h-5 w-5" />
-                  Customer Booking Details
+                  {cateringRequest ? 'Customer Booking Details' : 'Customer Information'}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div className="space-y-2">
-                    <div><strong>Customer:</strong> {cateringRequest.requester_name}</div>
-                    <div><strong>Email:</strong> {cateringRequest.requester_email}</div>
-                    <div><strong>Phone:</strong> {cateringRequest.requester_phone}</div>
+                {cateringRequest ? (
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="space-y-2">
+                      <div><strong>Customer:</strong> {cateringRequest.requester_name}</div>
+                      <div><strong>Email:</strong> {cateringRequest.requester_email}</div>
+                      <div><strong>Phone:</strong> {cateringRequest.requester_phone}</div>
+                    </div>
+                    <div className="space-y-2">
+                      <div><strong>Event Date:</strong> {cateringRequest.event_date ? new Date(cateringRequest.event_date).toLocaleDateString() : 'TBD'}</div>
+                      <div><strong>Time:</strong> {cateringRequest.event_time || 'TBD'}</div>
+                      <div><strong>Location:</strong> {cateringRequest.event_location}</div>
+                      <div><strong>Guests:</strong> {cateringRequest.number_of_guests}</div>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <div><strong>Event Date:</strong> {cateringRequest.event_date ? new Date(cateringRequest.event_date).toLocaleDateString() : 'TBD'}</div>
-                    <div><strong>Time:</strong> {cateringRequest.event_time || 'TBD'}</div>
-                    <div><strong>Location:</strong> {cateringRequest.event_location}</div>
-                    <div><strong>Guests:</strong> {cateringRequest.number_of_guests}</div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Customer Name</Label>
+                      <Input
+                        value={manualCustomer.name}
+                        onChange={(e) => setManualCustomer({...manualCustomer, name: e.target.value})}
+                        placeholder="Enter customer name"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Email</Label>
+                      <Input
+                        type="email"
+                        value={manualCustomer.email}
+                        onChange={(e) => setManualCustomer({...manualCustomer, email: e.target.value})}
+                        placeholder="customer@email.com"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Phone</Label>
+                      <Input
+                        value={manualCustomer.phone}
+                        onChange={(e) => setManualCustomer({...manualCustomer, phone: e.target.value})}
+                        placeholder="Phone number"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Event Date</Label>
+                      <Input
+                        type="date"
+                        value={manualCustomer.event_date}
+                        onChange={(e) => setManualCustomer({...manualCustomer, event_date: e.target.value})}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Event Time</Label>
+                      <Input
+                        type="time"
+                        value={manualCustomer.event_time}
+                        onChange={(e) => setManualCustomer({...manualCustomer, event_time: e.target.value})}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Event Location</Label>
+                      <Input
+                        value={manualCustomer.event_location}
+                        onChange={(e) => setManualCustomer({...manualCustomer, event_location: e.target.value})}
+                        placeholder="Event venue/address"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Number of Guests</Label>
+                      <Input
+                        type="number"
+                        value={manualCustomer.number_of_guests}
+                        onChange={(e) => setManualCustomer({...manualCustomer, number_of_guests: parseInt(e.target.value) || 0})}
+                        placeholder="0"
+                      />
+                    </div>
                   </div>
-                </div>
+                )}
                 
-                {selectedItems.length > 0 && (
+                {cateringRequest && selectedItems.length > 0 && (
                   <div>
                     <h4 className="font-semibold mb-2">Items Selected by Customer:</h4>
                     <div className="space-y-2">
@@ -318,7 +404,7 @@ export default function InvoiceModal({ isOpen, onClose, cateringRequest }: Invoi
                   </div>
                 )}
                 
-                {(() => {
+                {cateringRequest && (() => {
                   const requirements = cateringRequest.requirements || '';
                   const lines = requirements.split('\n');
                   const specialReqStart = lines.findIndex(line => line.includes('Special Requirements:'));
@@ -362,7 +448,7 @@ export default function InvoiceModal({ isOpen, onClose, cateringRequest }: Invoi
             </div>
             
             <div className="space-y-3">
-              {selectedItems.length > 0 && (
+              {cateringRequest && selectedItems.length > 0 && (
                 <div className="mb-4">
                   <Button
                     onClick={() => {
@@ -686,7 +772,7 @@ export default function InvoiceModal({ isOpen, onClose, cateringRequest }: Invoi
                 <div className="bg-yellow-50 border border-yellow-200 p-4 rounded">
                   <h4 className="font-semibold text-yellow-800 mb-2">Review Before Sending</h4>
                   <div className="text-sm text-yellow-700 space-y-1">
-                    <p>• Customer: {cateringRequest.requester_name} ({cateringRequest.requester_email})</p>
+                    <p>• Customer: {customerData.requester_name} ({customerData.requester_email})</p>
                     <p>• Invoice Items: {items.filter(item => item.name).length} items</p>
                     <p>• Total Amount: £{totalAmount.toFixed(2)}</p>
                     <p>• Payment Method: {paymentMethod === 'bank_transfer' ? 'Bank Transfer' : paymentMethod === 'paypal' ? 'PayPal' : 'Stripe Payment Link'}</p>

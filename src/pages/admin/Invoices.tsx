@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { Search, Filter, Eye, FileText, CheckCircle, Trash2 } from 'lucide-react';
+import InvoiceModal from '@/components/admin/InvoiceModal';
 
 interface Invoice {
   id: string;
@@ -42,6 +43,7 @@ export default function Invoices() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedInvoices, setSelectedInvoices] = useState<string[]>([]);
   const [deleting, setDeleting] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   useEffect(() => {
     fetchInvoices();
@@ -158,6 +160,10 @@ export default function Invoices() {
                 {deleting ? 'Deleting...' : `Delete ${selectedInvoices.length}`}
               </Button>
             )}
+            <Button onClick={() => setIsCreateModalOpen(true)} className="shadow-sm">
+              <FileText className="h-4 w-4 mr-2" />
+              Create Invoice
+            </Button>
             {/* Quick Stats */}
             <div className="flex gap-4">
               <div className="text-center">
@@ -355,6 +361,16 @@ export default function Invoices() {
             </Table>
           </div>
         </div>
+
+        {/* Create Invoice Modal */}
+        <InvoiceModal
+          isOpen={isCreateModalOpen}
+          onClose={() => {
+            setIsCreateModalOpen(false);
+            fetchInvoices();
+          }}
+          cateringRequest={null}
+        />
 
         {/* Invoice Details Modal */}
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
