@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { ProductEditModal } from '@/components/admin/ProductEditModal';
 import { toast } from 'sonner';
-import { Plus, Search, Edit } from 'lucide-react';
+import { Plus, Search, Edit, Copy, Trash2 } from 'lucide-react';
 
 interface Product {
   id: string;
@@ -60,7 +60,45 @@ export default function Products() {
     setFilteredProducts(filtered);
   }
 
+  async function handleDeleteSingle(product: Product) {
+    if (!confirm(`Are you sure you want to delete "${product.name}"?\n\nThis will permanently remove all product data including images, pricing, and availability. This action cannot be undone.`)) return;
+    
+    const { error } = await supabase.from('products').delete().eq('id', product.id);
+    if (error) {
+      toast.error('Failed to delete product');
+    } else {
+      toast.success('Product deleted');
+      fetchProducts();
+    }
+  }
+
+  async function duplicateProduct(product: Product) {
+    const { error } = await supabase.from('products').insert({
+      name: `${product.name} (Copy)`,
+      description: product.description,
+      price: product.price,
+      category: product.category,
+      is_active: false,
+      available_for_catering: product.available_for_catering,
+      image: product.image
+    });
+    
+    if (error) {
+      toast.error('Failed to duplicate product');
+    } else {
+      toast.success('Product duplicated successfully');
+      fetchProducts();
+    }
+  }
+
   async function toggleActive(id: string, is_active: boolean) {
+    const product = products.find(p => p.id === id);
+    const newStatus = is_active ? 'inactive' : 'active';
+    
+    if (!confirm(`Are you sure you want to make "${product?.name}" ${newStatus}?\n\nThis will ${is_active ? 'hide' : 'show'} the product on the website.`)) {
+      return;
+    }
+    
     const { error } = await supabase.from('products').update({ is_active: !is_active }).eq('id', id);
     if (error) {
       toast.error('Failed to update');
@@ -82,7 +120,7 @@ export default function Products() {
 
   const handleBulkDelete = async () => {
     if (selectedProducts.length === 0) return;
-    if (!confirm(`Delete ${selectedProducts.length} selected products?`)) return;
+    if (!confirm(`Are you sure you want to delete ${selectedProducts.length} selected products?\n\nThis will permanently remove all product data including images, pricing, and availability. This action cannot be undone.`)) return;
     
     setDeleting(true);
     const { error } = await supabase.from('products').delete().in('id', selectedProducts);
@@ -147,8 +185,17 @@ export default function Products() {
               <SelectContent>
                 <SelectItem value="all">All Categories</SelectItem>
                 <SelectItem value="rice">Rice Dishes</SelectItem>
+                <SelectItem value="proteins">Proteins</SelectItem>
+                <SelectItem value="vegetables">Vegetables</SelectItem>
                 <SelectItem value="soup">Soups</SelectItem>
                 <SelectItem value="sides">Sides</SelectItem>
+                <SelectItem value="appetizers">Appetizers</SelectItem>
+                <SelectItem value="desserts">Desserts</SelectItem>
+                <SelectItem value="beverages">Beverages</SelectItem>
+                <SelectItem value="seafood">Seafood</SelectItem>
+                <SelectItem value="pasta">Pasta</SelectItem>
+                <SelectItem value="salads">Salads</SelectItem>
+                <SelectItem value="grains">Grains</SelectItem>
                 <SelectItem value="special">Specials</SelectItem>
               </SelectContent>
             </Select>
@@ -186,7 +233,7 @@ export default function Products() {
                 <TableHead className="w-20">Price</TableHead>
                 <TableHead className="w-16">Active</TableHead>
                 <TableHead className="w-20">Catering</TableHead>
-                <TableHead className="w-20">Actions</TableHead>
+                <TableHead className="w-32">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -237,17 +284,38 @@ export default function Products() {
                       )}
                     </TableCell>
                     <TableCell className="py-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setEditingProduct(product);
-                          setModalOpen(true);
-                        }}
-                        className="h-7 w-7 p-0"
-                      >
-                        <Edit className="h-3 w-3" />
-                      </Button>
+                      <div className="flex gap-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setEditingProduct(product);
+                            setModalOpen(true);
+                          }}
+                          className="h-7 w-7 p-0"
+                          title="Edit Product"
+                        >
+                          <Edit className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => duplicateProduct(product)}
+                          className="h-7 w-7 p-0"
+                          title="Duplicate Product"
+                        >
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleDeleteSingle(product)}
+                          className="h-7 w-7 p-0"
+                          title="Delete Product"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))

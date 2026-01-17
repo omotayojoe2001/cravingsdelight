@@ -117,7 +117,7 @@ export default function Catering() {
 
   const handleBulkDelete = async () => {
     if (selectedRequests.length === 0) return;
-    if (!confirm(`Delete ${selectedRequests.length} selected catering requests? This action cannot be undone.`)) return;
+    if (!confirm(`Are you sure you want to delete ${selectedRequests.length} selected catering requests?\n\nThis will permanently remove all catering data including customer information, event details, and special requirements. This action cannot be undone.`)) return;
     
     setDeleting(true);
     const { error } = await supabase.from('catering_requests').delete().in('id', selectedRequests);
@@ -133,7 +133,7 @@ export default function Catering() {
   };
 
   const handleDeleteSingle = async (requestId: string) => {
-    if (!confirm('Delete this catering request? This action cannot be undone.')) return;
+    if (!confirm('Are you sure you want to delete this catering request?\n\nThis will permanently remove all catering data including customer information, event details, and special requirements. This action cannot be undone.')) return;
     
     const { error } = await supabase.from('catering_requests').delete().eq('id', requestId);
     if (error) {

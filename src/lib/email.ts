@@ -1,9 +1,15 @@
 async function callEmailAPI(type: string, data: any) {
   try {
+    console.log('🔧 DEBUG: Email API call started');
+    console.log('🔧 DEBUG: Email type:', type);
+    console.log('🔧 DEBUG: Email data:', JSON.stringify(data, null, 2));
+    
     // Use production URL for email API since it's serverless
     const apiUrl = import.meta.env.DEV 
       ? 'https://cravingsdelight.vercel.app/api/send-email'
       : '/api/send-email';
+    
+    console.log('🔧 DEBUG: API URL:', apiUrl);
     
     const response = await fetch(apiUrl, {
       method: 'POST',
@@ -13,13 +19,20 @@ async function callEmailAPI(type: string, data: any) {
       body: JSON.stringify({ type, data }),
     });
 
+    console.log('🔧 DEBUG: Response status:', response.status);
+    console.log('🔧 DEBUG: Response ok:', response.ok);
+    
     if (!response.ok) {
-      throw new Error(`Email API failed: ${response.statusText}`);
+      const errorText = await response.text();
+      console.error('❌ DEBUG: API error response:', errorText);
+      throw new Error(`Email API failed: ${response.statusText} - ${errorText}`);
     }
 
-    return await response.json();
+    const result = await response.json();
+    console.log('✅ DEBUG: Email API success:', result);
+    return result;
   } catch (error) {
-    console.error('Email API error:', error);
+    console.error('❌ DEBUG: Email API error:', error);
     throw error;
   }
 }
@@ -49,9 +62,22 @@ export async function sendInvoiceEmail(customerEmail: string, invoiceData: any) 
   });
 }
 
-export async function sendStatusUpdateEmail(customerEmail: string, statusData: any) {
-  return await callEmailAPI('status_update', {
+export async function sendInvoiceUpdateEmail(customerEmail: string, invoiceData: any) {
+  return await callEmailAPI('invoice_update', {
     customer_email: customerEmail,
-    ...statusData
+    ...invoiceData
+  });
+}
+
+export async function sendInvoiceUpdateNotification(customerEmail: string, invoiceData: any) {
+  return await callEmailAPI('order', {
+    customer_email: customerEmail,
+    customer_name: invoiceData.customer_name,
+    items: invoiceData.items,
+    total: invoiceData.total,
+    delivery_address: '', // Blank delivery address
+    phone: invoiceData.phone || '',
+    subject_override: `Invoice Updated - ${invoiceData.invoice_number}`,
+    custom_message: `Your invoice ${invoiceData.invoice_number} has been updated. Please review the updated items and pricing below:`
   });
 }

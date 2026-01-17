@@ -148,10 +148,19 @@ export function ProductEditModal({ product, open, onClose, onSave }: ProductEdit
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="rice">Rice</SelectItem>
-                    <SelectItem value="soup">Soup</SelectItem>
+                    <SelectItem value="rice">Rice Dishes</SelectItem>
+                    <SelectItem value="proteins">Proteins</SelectItem>
+                    <SelectItem value="vegetables">Vegetables</SelectItem>
+                    <SelectItem value="soup">Soups</SelectItem>
                     <SelectItem value="sides">Sides</SelectItem>
-                    <SelectItem value="special">Special</SelectItem>
+                    <SelectItem value="appetizers">Appetizers</SelectItem>
+                    <SelectItem value="desserts">Desserts</SelectItem>
+                    <SelectItem value="beverages">Beverages</SelectItem>
+                    <SelectItem value="seafood">Seafood</SelectItem>
+                    <SelectItem value="pasta">Pasta</SelectItem>
+                    <SelectItem value="salads">Salads</SelectItem>
+                    <SelectItem value="grains">Grains</SelectItem>
+                    <SelectItem value="special">Specials</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

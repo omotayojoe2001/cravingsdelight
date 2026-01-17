@@ -89,6 +89,11 @@ export default function Orders() {
   }
 
   async function updateStatus(id: string, status: string) {
+    const order = orders.find(o => o.id === id);
+    if (!confirm(`Are you sure you want to change order status for ${order?.customer_name} to "${status}"?\n\nThis will update the order status in the system.`)) {
+      return;
+    }
+    
     const { error } = await supabase.from('orders').update({ order_status: status }).eq('id', id);
     if (error) {
       toast.error('Failed to update');
@@ -110,7 +115,7 @@ export default function Orders() {
 
   const handleBulkDelete = async () => {
     if (selectedOrders.length === 0) return;
-    if (!confirm(`Delete ${selectedOrders.length} selected orders? This action cannot be undone.`)) return;
+    if (!confirm(`Are you sure you want to delete ${selectedOrders.length} selected orders?\n\nThis will permanently remove all order data including customer information and order history. This action cannot be undone.`)) return;
     
     setDeleting(true);
     const { error } = await supabase.from('orders').delete().in('id', selectedOrders);
@@ -126,7 +131,7 @@ export default function Orders() {
   };
 
   const handleDeleteSingle = async (orderId: string) => {
-    if (!confirm('Delete this order? This action cannot be undone.')) return;
+    if (!confirm('Are you sure you want to delete this order?\n\nThis will permanently remove all order data including customer information and order history. This action cannot be undone.')) return;
     
     const { error } = await supabase.from('orders').delete().eq('id', orderId);
     if (error) {

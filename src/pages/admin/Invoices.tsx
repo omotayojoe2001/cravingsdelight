@@ -7,43 +7,43 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { InvoiceEditModal } from '@/components/admin/InvoiceEditModal';
+import { InvoiceStatusHistory } from '@/components/admin/InvoiceStatusHistory';
+import { sendOrderConfirmation } from '@/lib/email';
 import { toast } from 'sonner';
-import { Search, Filter, Eye, FileText, CheckCircle, Trash2 } from 'lucide-react';
-import InvoiceModal from '@/components/admin/InvoiceModal';
+import { Plus, Search, Edit, Mail, Eye, FileText, Trash2 } from 'lucide-react';
 
 interface Invoice {
   id: string;
   invoice_number: string;
   customer_name: string;
   customer_email: string;
-  event_date: string | null;
-  event_location: string;
-  number_of_guests: number;
-  invoice_items: any[];
-  subtotal: number;
-  tax_rate: number;
-  tax_amount: number;
-  delivery_fee: number;
-  discount_amount: number;
+  customer_phone: string;
   total_amount: number;
-  status: string;
-  due_date: string | null;
-  sent_at: string | null;
-  paid_at: string | null;
+  status: 'draft' | 'in_progress' | 'sent' | 'paid' | 'overdue' | 'cancelled';
+  due_date: string;
   created_at: string;
-  notes: string;
+  sent_at: string | null;
 }
 
 export default function Invoices() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [filteredInvoices, setFilteredInvoices] = useState<Invoice[]>([]);
-  const [statusFilter, setStatusFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedInvoices, setSelectedInvoices] = useState<string[]>([]);
-  const [deleting, setDeleting] = useState(false);
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
+  const [statusModalOpen, setStatusModalOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [historyModalOpen, setHistoryModalOpen] = useState(false);
+  const [historyInvoiceId, setHistoryInvoiceId] = useState<string | null>(null);
+  const [newStatus, setNewStatus] = useState('');
+  const [statusNotes, setStatusNotes] = useState('');
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deletingInvoice, setDeletingInvoice] = useState<Invoice | null>(null);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchInvoices();
@@ -51,428 +51,455 @@ export default function Invoices() {
 
   useEffect(() => {
     filterInvoices();
-  }, [invoices, statusFilter, searchQuery]);
+  }, [invoices, searchQuery, statusFilter]);
 
   async function fetchInvoices() {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('invoices')
       .select('*')
       .order('created_at', { ascending: false });
-    if (data) setInvoices(data);
+
+    if (error) {
+      console.error('Error fetching invoices:', error);
+    } else {
+      setInvoices(data || []);
+    }
+    setLoading(false);
   }
 
   function filterInvoices() {
     let filtered = [...invoices];
-    
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(inv => inv.status === statusFilter);
-    }
-    
+
     if (searchQuery) {
       filtered = filtered.filter(inv => 
         inv.customer_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        inv.customer_email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        inv.invoice_number.toLowerCase().includes(searchQuery.toLowerCase())
+        inv.invoice_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        inv.customer_email.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
-    
+
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(inv => inv.status === statusFilter);
+    }
+
     setFilteredInvoices(filtered);
   }
 
-  async function markAsPaid(id: string) {
+  async function updateInvoiceStatus(invoiceId: string, oldStatus: string, newStatus: string, notes: string) {
+    const updates: any = { status: newStatus };
+    
+    if (newStatus === 'sent' && oldStatus !== 'sent') {
+      updates.sent_at = new Date().toISOString();
+    }
+    if (newStatus === 'paid' && oldStatus !== 'paid') {
+      updates.paid_at = new Date().toISOString();
+    }
+
     const { error } = await supabase
       .from('invoices')
-      .update({ 
-        status: 'paid',
-        paid_at: new Date().toISOString()
-      })
-      .eq('id', id);
-    
+      .update(updates)
+      .eq('id', invoiceId);
+
     if (error) {
-      toast.error('Failed to update invoice');
-    } else {
-      toast.success('Invoice marked as paid');
-      fetchInvoices();
+      toast.error('Failed to update status');
+      return false;
+    }
+
+    // Add to status history
+    await supabase.from('invoice_status_history').insert({
+      invoice_id: invoiceId,
+      old_status: oldStatus,
+      new_status: newStatus,
+      notes: notes || null,
+      changed_by: 'Admin'
+    });
+
+    // Send email notification
+    await sendStatusEmail(invoiceId, newStatus);
+    
+    toast.success(`Invoice status updated to ${newStatus}`);
+    fetchInvoices();
+    return true;
+  }
+
+  async function sendStatusEmail(invoiceId: string, status: string) {
+    try {
+      console.log('🔧 DEBUG: Attempting to send status update email...');
+      console.log('🔧 DEBUG: Invoice ID:', invoiceId);
+      console.log('🔧 DEBUG: New status:', status);
+      
+      const invoice = invoices.find(inv => inv.id === invoiceId);
+      if (invoice) {
+        console.log('🔧 DEBUG: Found invoice:', invoice.invoice_number);
+        console.log('🔧 DEBUG: Customer email:', invoice.customer_email);
+        
+        // Use order template for status updates too
+        await sendOrderConfirmation(invoice.customer_email, {
+          customer_name: invoice.customer_name,
+          items: [{
+            name: `Invoice ${invoice.invoice_number} Status Update`,
+            quantity: 1,
+            price: invoice.total_amount.toFixed(2)
+          }],
+          total: invoice.total_amount.toFixed(2),
+          delivery_address: `STATUS UPDATE - Your invoice ${invoice.invoice_number} status has been changed to: ${getStatusLabel(status)}`,
+          phone: invoice.customer_phone || ''
+        });
+        
+        console.log('✅ DEBUG: Status update email sent successfully');
+        toast.success('Email notification sent');
+      } else {
+        console.error('❌ DEBUG: Invoice not found for ID:', invoiceId);
+        toast.error('Invoice not found');
+      }
+    } catch (error) {
+      console.error('❌ DEBUG: Email send failed:', error);
+      console.error('❌ DEBUG: Error message:', error.message);
+      console.error('❌ DEBUG: Full error object:', error);
+      toast.error('Failed to send email notification');
     }
   }
 
-  const handleSelectAll = (checked: boolean) => {
-    setSelectedInvoices(checked ? filteredInvoices.map(inv => inv.id) : []);
-  };
-
-  const handleSelectInvoice = (invoiceId: string, checked: boolean) => {
-    setSelectedInvoices(prev => 
-      checked ? [...prev, invoiceId] : prev.filter(id => id !== invoiceId)
-    );
-  };
-
-  const handleBulkDelete = async () => {
-    if (selectedInvoices.length === 0) return;
-    if (!confirm(`Delete ${selectedInvoices.length} selected invoices? This action cannot be undone.`)) return;
+  const handleStatusChange = async () => {
+    if (!editingInvoice || !newStatus) return;
     
-    setDeleting(true);
-    const { error } = await supabase.from('invoices').delete().in('id', selectedInvoices);
-    
-    if (error) {
-      toast.error('Failed to delete invoices');
-    } else {
-      toast.success(`${selectedInvoices.length} invoices deleted`);
-      setSelectedInvoices([]);
-      fetchInvoices();
+    if (!confirm(`Are you sure you want to change invoice ${editingInvoice.invoice_number} status from "${getStatusLabel(editingInvoice.status)}" to "${getStatusLabel(newStatus)}"?\n\nThis will send an email notification to the customer.`)) {
+      return;
     }
-    setDeleting(false);
+    
+    const success = await updateInvoiceStatus(
+      editingInvoice.id, 
+      editingInvoice.status, 
+      newStatus as any, 
+      statusNotes
+    );
+    
+    if (success) {
+      setStatusModalOpen(false);
+      setEditingInvoice(null);
+      setNewStatus('');
+      setStatusNotes('');
+    }
   };
 
-  const handleDeleteSingle = async (invoiceId: string) => {
-    if (!confirm('Delete this invoice? This action cannot be undone.')) return;
-    
-    const { error } = await supabase.from('invoices').delete().eq('id', invoiceId);
+  async function deleteInvoice(invoiceId: string) {
+    const { error } = await supabase
+      .from('invoices')
+      .delete()
+      .eq('id', invoiceId);
+
     if (error) {
       toast.error('Failed to delete invoice');
-    } else {
-      toast.success('Invoice deleted');
-      fetchInvoices();
+      return false;
+    }
+
+    toast.success('Invoice deleted successfully');
+    fetchInvoices();
+    return true;
+  }
+
+  const handleDelete = async () => {
+    if (!deletingInvoice) return;
+    
+    if (!confirm(`Are you sure you want to permanently delete invoice ${deletingInvoice.invoice_number} for ${deletingInvoice.customer_name}?\n\nThis action cannot be undone and will remove all invoice data and history.`)) {
+      return;
+    }
+    
+    const success = await deleteInvoice(deletingInvoice.id);
+    
+    if (success) {
+      setDeleteModalOpen(false);
+      setDeletingInvoice(null);
     }
   };
 
-  const totalRevenue = invoices.filter(inv => inv.status === 'paid').reduce((sum, inv) => sum + inv.total_amount, 0);
-  const pendingAmount = invoices.filter(inv => inv.status === 'sent').reduce((sum, inv) => sum + inv.total_amount, 0);
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'draft': return 'bg-blue-100 text-blue-800'; // Order Received
+      case 'in_progress': return 'bg-yellow-100 text-yellow-800'; // Order In Progress
+      case 'sent': return 'bg-purple-100 text-purple-800'; // Order Sent
+      case 'paid': return 'bg-green-100 text-green-800'; // Order Delivered
+      case 'cancelled': return 'bg-red-100 text-red-800'; // Order Cancelled
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'draft': return 'Order Received';
+      case 'in_progress': return 'Order In Progress';
+      case 'sent': return 'Order Sent';
+      case 'paid': return 'Order Delivered';
+      case 'cancelled': return 'Order Cancelled';
+      default: return status;
+    }
+  };
+
+  if (loading) return <AdminLayout><p>Loading...</p></AdminLayout>;
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Invoices</h1>
-            <p className="text-muted-foreground">{filteredInvoices.length} of {invoices.length} invoices</p>
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="font-display text-3xl font-bold">Invoices</h1>
+          <p className="text-muted-foreground mt-1">{filteredInvoices.length} invoices</p>
+        </div>
+        <Button onClick={() => setCreateModalOpen(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Create Invoice
+        </Button>
+      </div>
+
+      {/* Filters */}
+      <div className="bg-white rounded-lg border p-6 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search invoices..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
           </div>
           
-          <div className="flex gap-4">
-            {selectedInvoices.length > 0 && (
-              <Button 
-                onClick={handleBulkDelete} 
-                variant="destructive" 
-                size="sm"
-                disabled={deleting}
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                {deleting ? 'Deleting...' : `Delete ${selectedInvoices.length}`}
-              </Button>
-            )}
-            <Button onClick={() => setIsCreateModalOpen(true)} className="shadow-sm">
-              <FileText className="h-4 w-4 mr-2" />
-              Create Invoice
-            </Button>
-            {/* Quick Stats */}
-            <div className="flex gap-4">
-              <div className="text-center">
-                <div className="text-lg font-bold text-green-600">
-                  £{totalRevenue.toFixed(2)}
-                </div>
-                <div className="text-xs text-muted-foreground">Paid</div>
-              </div>
-              <div className="text-center">
-                <div className="text-lg font-bold text-yellow-600">
-                  £{pendingAmount.toFixed(2)}
-                </div>
-                <div className="text-xs text-muted-foreground">Pending</div>
-              </div>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger>
+              <SelectValue placeholder="Filter by status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="draft">Order Received</SelectItem>
+              <SelectItem value="in_progress">Order In Progress</SelectItem>
+              <SelectItem value="sent">Order Sent</SelectItem>
+              <SelectItem value="paid">Order Delivered</SelectItem>
+              <SelectItem value="cancelled">Order Cancelled</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div>
+              <div className="text-lg font-bold text-blue-600">{invoices.filter(i => i.status === 'sent').length}</div>
+              <div className="text-xs text-muted-foreground">Sent</div>
+            </div>
+            <div>
+              <div className="text-lg font-bold text-green-600">{invoices.filter(i => i.status === 'paid').length}</div>
+              <div className="text-xs text-muted-foreground">Paid</div>
+            </div>
+            <div>
+              <div className="text-lg font-bold text-red-600">{invoices.filter(i => i.status === 'overdue').length}</div>
+              <div className="text-xs text-muted-foreground">Overdue</div>
             </div>
           </div>
         </div>
-
-        {/* Filters */}
-        <div className="bg-white border rounded-lg p-4">
-          <div className="flex gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by customer, email, or invoice number..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-48">
-                <Filter className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Filter by status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="draft">Draft</SelectItem>
-                <SelectItem value="sent">Sent</SelectItem>
-                <SelectItem value="paid">Paid</SelectItem>
-                <SelectItem value="overdue">Overdue</SelectItem>
-                <SelectItem value="cancelled">Cancelled</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        {/* Invoices Table */}
-        <div className="bg-white border rounded-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <Table className="min-w-full">
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-12">
-                    <input
-                      type="checkbox"
-                      checked={selectedInvoices.length === filteredInvoices.length && filteredInvoices.length > 0}
-                      onChange={(e) => handleSelectAll(e.target.checked)}
-                      className="rounded"
-                    />
-                  </TableHead>
-                  <TableHead>Invoice #</TableHead>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Event Details</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Dates</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredInvoices.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                      No invoices found
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredInvoices.map((invoice) => (
-                    <TableRow key={invoice.id} className="hover:bg-muted/50">
-                      <TableCell>
-                        <input
-                          type="checkbox"
-                          checked={selectedInvoices.includes(invoice.id)}
-                          onChange={(e) => handleSelectInvoice(invoice.id, e.target.checked)}
-                          className="rounded"
-                        />
-                      </TableCell>
-                      <TableCell className="font-mono text-sm font-medium">
-                        {invoice.invoice_number}
-                      </TableCell>
-                      
-                      <TableCell>
-                        <div className="space-y-1">
-                          <div className="font-medium text-sm">{invoice.customer_name}</div>
-                          <div className="text-xs text-muted-foreground">{invoice.customer_email}</div>
-                        </div>
-                      </TableCell>
-                      
-                      <TableCell>
-                        <div className="text-xs space-y-1">
-                          <div className="font-medium">
-                            {invoice.event_date ? new Date(invoice.event_date).toLocaleDateString('en-GB') : 'TBD'}
-                          </div>
-                          <div className="text-muted-foreground max-w-xs truncate">
-                            {invoice.event_location}
-                          </div>
-                          <div className="text-muted-foreground">
-                            {invoice.number_of_guests} guests
-                          </div>
-                        </div>
-                      </TableCell>
-                      
-                      <TableCell>
-                        <div className="text-sm">
-                          <div className="font-bold">£{invoice.total_amount.toFixed(2)}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {invoice.invoice_items.length} items
-                          </div>
-                        </div>
-                      </TableCell>
-                      
-                      <TableCell>
-                        <Badge className={
-                          invoice.status === 'paid' ? 'bg-green-100 text-green-800' :
-                          invoice.status === 'sent' ? 'bg-blue-100 text-blue-800' :
-                          invoice.status === 'overdue' ? 'bg-red-100 text-red-800' :
-                          invoice.status === 'cancelled' ? 'bg-gray-100 text-gray-800' :
-                          'bg-yellow-100 text-yellow-800'
-                        }>
-                          {invoice.status}
-                        </Badge>
-                      </TableCell>
-                      
-                      <TableCell>
-                        <div className="text-xs space-y-1">
-                          <div>
-                            <span className="text-muted-foreground">Created:</span><br/>
-                            {new Date(invoice.created_at).toLocaleDateString('en-GB')}
-                          </div>
-                          {invoice.due_date && (
-                            <div>
-                              <span className="text-muted-foreground">Due:</span><br/>
-                              {new Date(invoice.due_date).toLocaleDateString('en-GB')}
-                            </div>
-                          )}
-                          {invoice.paid_at && (
-                            <div>
-                              <span className="text-muted-foreground">Paid:</span><br/>
-                              {new Date(invoice.paid_at).toLocaleDateString('en-GB')}
-                            </div>
-                          )}
-                        </div>
-                      </TableCell>
-                      
-                      <TableCell>
-                        <div className="flex gap-1">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setSelectedInvoice(invoice);
-                              setIsModalOpen(true);
-                            }}
-                            className="h-7 w-7 p-0"
-                          >
-                            <Eye className="h-3 w-3" />
-                          </Button>
-                          {invoice.status === 'sent' && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => markAsPaid(invoice.id)}
-                              className="h-7 w-7 p-0"
-                              title="Mark as Paid"
-                            >
-                              <CheckCircle className="h-3 w-3" />
-                            </Button>
-                          )}
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => handleDeleteSingle(invoice.id)}
-                            className="h-7 w-7 p-0"
-                            title="Delete Invoice"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </div>
-
-        {/* Create Invoice Modal */}
-        <InvoiceModal
-          isOpen={isCreateModalOpen}
-          onClose={() => {
-            setIsCreateModalOpen(false);
-            fetchInvoices();
-          }}
-          cateringRequest={null}
-        />
-
-        {/* Invoice Details Modal */}
-        <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Invoice Details - {selectedInvoice?.invoice_number}</DialogTitle>
-            </DialogHeader>
-            {selectedInvoice && (
-              <div className="space-y-6">
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <div>
-                      <h3 className="font-semibold mb-2">Customer Information</h3>
-                      <div className="space-y-2 text-sm">
-                        <div><strong>Name:</strong> {selectedInvoice.customer_name}</div>
-                        <div><strong>Email:</strong> {selectedInvoice.customer_email}</div>
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <h3 className="font-semibold mb-2">Event Details</h3>
-                      <div className="space-y-2 text-sm">
-                        <div><strong>Date:</strong> {selectedInvoice.event_date ? new Date(selectedInvoice.event_date).toLocaleDateString('en-GB') : 'TBD'}</div>
-                        <div><strong>Location:</strong> {selectedInvoice.event_location}</div>
-                        <div><strong>Guests:</strong> {selectedInvoice.number_of_guests}</div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    <div>
-                      <h3 className="font-semibold mb-2">Financial Summary</h3>
-                      <div className="bg-muted/50 p-4 rounded-lg space-y-2 text-sm">
-                        <div className="flex justify-between">
-                          <span>Subtotal:</span>
-                          <span>£{selectedInvoice.subtotal.toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Tax ({selectedInvoice.tax_rate}%):</span>
-                          <span>£{selectedInvoice.tax_amount.toFixed(2)}</span>
-                        </div>
-                        {selectedInvoice.delivery_fee > 0 && (
-                          <div className="flex justify-between">
-                            <span>Delivery Fee:</span>
-                            <span>£{selectedInvoice.delivery_fee.toFixed(2)}</span>
-                          </div>
-                        )}
-                        {selectedInvoice.discount_amount > 0 && (
-                          <div className="flex justify-between">
-                            <span>Discount:</span>
-                            <span>-£{selectedInvoice.discount_amount.toFixed(2)}</span>
-                          </div>
-                        )}
-                        <hr />
-                        <div className="flex justify-between font-bold text-lg">
-                          <span>Total:</span>
-                          <span>£{selectedInvoice.total_amount.toFixed(2)}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                <div>
-                  <h3 className="font-semibold mb-2">Invoice Items</h3>
-                  <div className="border rounded-lg overflow-hidden">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Item</TableHead>
-                          <TableHead>Quantity</TableHead>
-                          <TableHead>Unit Price</TableHead>
-                          <TableHead>Total</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {selectedInvoice.invoice_items.map((item, index) => (
-                          <TableRow key={index}>
-                            <TableCell>{item.name}</TableCell>
-                            <TableCell>{item.quantity}</TableCell>
-                            <TableCell>£{item.unit_price.toFixed(2)}</TableCell>
-                            <TableCell>£{item.total.toFixed(2)}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </div>
-                
-                {selectedInvoice.notes && (
-                  <div>
-                    <h3 className="font-semibold mb-2">Notes</h3>
-                    <div className="bg-muted/50 p-3 rounded text-sm">
-                      {selectedInvoice.notes}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
       </div>
+
+      {/* Invoices Table */}
+      <div className="bg-white rounded-lg border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Invoice #</TableHead>
+              <TableHead>Customer</TableHead>
+              <TableHead>Amount</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Due Date</TableHead>
+              <TableHead>Created</TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredInvoices.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">
+                  No invoices found
+                </TableCell>
+              </TableRow>
+            ) : (
+              filteredInvoices.map((invoice) => (
+                <TableRow key={invoice.id}>
+                  <TableCell className="font-mono text-sm">{invoice.invoice_number}</TableCell>
+                  <TableCell>
+                    <div>
+                      <p className="font-medium">{invoice.customer_name}</p>
+                      <p className="text-sm text-muted-foreground">{invoice.customer_email}</p>
+                    </div>
+                  </TableCell>
+                  <TableCell className="font-bold">£{invoice.total_amount.toFixed(2)}</TableCell>
+                  <TableCell>
+                    <Badge className={getStatusColor(invoice.status)}>
+                      {getStatusLabel(invoice.status)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    {invoice.due_date ? new Date(invoice.due_date).toLocaleDateString() : '-'}
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    {new Date(invoice.created_at).toLocaleDateString()}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex gap-2">
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => {
+                          setHistoryInvoiceId(invoice.id);
+                          setHistoryModalOpen(true);
+                        }}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => {
+                          setEditingInvoice(invoice);
+                          setEditModalOpen(true);
+                        }}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => {
+                          setEditingInvoice(invoice);
+                          setNewStatus(invoice.status);
+                          setStatusModalOpen(true);
+                        }}
+                      >
+                        <Mail className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => {
+                          setDeletingInvoice(invoice);
+                          setDeleteModalOpen(true);
+                        }}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* Status Change Modal */}
+      <Dialog open={statusModalOpen} onOpenChange={setStatusModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Update Invoice Status</DialogTitle>
+          </DialogHeader>
+          
+          {editingInvoice && (
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm text-muted-foreground">Invoice: {editingInvoice.invoice_number}</p>
+                <p className="font-medium">{editingInvoice.customer_name}</p>
+              </div>
+              
+              <div>
+                <Label>New Status</Label>
+                <Select value={newStatus} onValueChange={setNewStatus}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="draft">Order Received</SelectItem>
+                    <SelectItem value="in_progress">Order In Progress</SelectItem>
+                    <SelectItem value="sent">Order Sent</SelectItem>
+                    <SelectItem value="paid">Order Delivered</SelectItem>
+                    <SelectItem value="cancelled">Order Cancelled</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label>Notes (optional)</Label>
+                <Textarea
+                  value={statusNotes}
+                  onChange={(e) => setStatusNotes(e.target.value)}
+                  placeholder="Add notes about this status change..."
+                  rows={3}
+                />
+              </div>
+              
+              <div className="flex gap-3 pt-4">
+                <Button variant="outline" onClick={() => setStatusModalOpen(false)} className="flex-1">
+                  Cancel
+                </Button>
+                <Button onClick={handleStatusChange} className="flex-1">
+                  Update & Send Email
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Invoice Edit Modal */}
+      <InvoiceEditModal
+        invoice={editingInvoice}
+        open={editModalOpen}
+        onClose={() => {
+          setEditModalOpen(false);
+          setEditingInvoice(null);
+        }}
+        onSave={fetchInvoices}
+      />
+
+      {/* Invoice Create Modal */}
+      <InvoiceEditModal
+        invoice={null}
+        open={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+        onSave={fetchInvoices}
+      />
+
+      {/* Status History Modal */}
+      <InvoiceStatusHistory
+        invoiceId={historyInvoiceId}
+        open={historyModalOpen}
+        onClose={() => {
+          setHistoryModalOpen(false);
+          setHistoryInvoiceId(null);
+        }}
+      />
+
+      {/* Delete Confirmation Modal */}
+      <Dialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Invoice</DialogTitle>
+          </DialogHeader>
+          
+          {deletingInvoice && (
+            <div className="space-y-4">
+              <p className="text-muted-foreground">
+                Are you sure you want to delete invoice <strong>{deletingInvoice.invoice_number}</strong> for <strong>{deletingInvoice.customer_name}</strong>?
+              </p>
+              <p className="text-sm text-red-600">
+                This action cannot be undone. All invoice data and history will be permanently deleted.
+              </p>
+              
+              <div className="flex gap-3 pt-4">
+                <Button variant="outline" onClick={() => setDeleteModalOpen(false)} className="flex-1">
+                  Cancel
+                </Button>
+                <Button onClick={handleDelete} variant="destructive" className="flex-1">
+                  Delete Invoice
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </AdminLayout>
   );
 }

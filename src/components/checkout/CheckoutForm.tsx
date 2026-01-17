@@ -18,27 +18,11 @@ import { Elements, CardElement, useStripe, useElements } from '@stripe/react-str
 import { stripeConfig } from '@/config/stripe';
 import { supabase } from '@/lib/supabase';
 import { calculateDeliveryFee, isHullPostcode } from '@/utils/deliveryFee';
+import { CouponInput } from "@/components/checkout/CouponInput";
 import { sendOrderConfirmation } from '@/lib/email';
 
 // Initialize Stripe with publishable key
-if (stripeConfig.publishableKey) {
-  console.log('✅ Initializing Stripe with valid key');
-} else {
-  console.error('❌ Stripe key missing');
-}
-
-const stripePromise = loadStripe(stripeConfig.publishableKey).then(stripe => {
-  console.log('🔧 DEBUG: Stripe loaded:', !!stripe);
-  if (stripe) {
-    console.log('✅ DEBUG: Stripe instance created successfully');
-  } else {
-    console.log('❌ DEBUG: Failed to create Stripe instance');
-  }
-  return stripe;
-}).catch(error => {
-  console.error('❌ DEBUG: Stripe loading error:', error);
-  return null;
-});
+const stripePromise = loadStripe(stripeConfig.publishableKey);
 
 const cardElementOptions = {
   style: {
@@ -63,8 +47,9 @@ function CheckoutFormContent() {
   const [deliveryFee, setDeliveryFee] = useState(0); // No default fee
   const [calculatingFee, setCalculatingFee] = useState(false);
   const [postcodeEntered, setPostcodeEntered] = useState(false);
+  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discount_percentage: number; discount_amount: number } | null>(null);
   
-  const finalTotal = totalAmount + deliveryFee;
+  const finalTotal = totalAmount + deliveryFee - (appliedCoupon?.discount_amount || 0);
   
   const [formData, setFormData] = useState({
     fullName: "",
@@ -89,8 +74,6 @@ function CheckoutFormContent() {
 
   const stripe = useStripe();
   const elements = useElements();
-  
-  // Debug Stripe and Elements availability
   // Calculate delivery fee based on postcode
   const updateDeliveryFee = async (postcode: string) => {
     if (!postcode || postcode.length < 3) {
@@ -111,98 +94,53 @@ function CheckoutFormContent() {
     updateDeliveryFee(formData.postcode);
   }, [formData.postcode]);
 
-  React.useEffect(() => {
-    console.log('🔧 DEBUG: Stripe hook result:', !!stripe);
-    console.log('🔧 DEBUG: Elements hook result:', !!elements);
-    
-    if (stripe) {
-      console.log('✅ DEBUG: Stripe is ready for use');
-    } else {
-      console.log('⚠️ DEBUG: Stripe not yet loaded');
-    }
-    
-    if (elements) {
-      console.log('✅ DEBUG: Elements is ready for use');
-      const cardElement = elements.getElement(CardElement);
-      console.log('🔧 DEBUG: CardElement available:', !!cardElement);
-    } else {
-      console.log('⚠️ DEBUG: Elements not yet loaded');
-    }
-  }, [stripe, elements]);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    console.log('🔧 DEBUG: Form submission started');
-    console.log('🔧 DEBUG: Form data:', JSON.stringify(formData, null, 2));
-    console.log('🔧 DEBUG: Payment method:', paymentMethod);
-    console.log('🔧 DEBUG: Total amount:', totalAmount);
-    console.log('🔧 DEBUG: Agreed to terms:', agreedToTerms);
 
     // Validate required fields
     if (!formData.fullName.trim()) {
-      console.log('❌ DEBUG: Validation failed - missing full name');
       toast.error("Please enter your full name");
       return;
     }
     if (!formData.email.trim()) {
-      console.log('❌ DEBUG: Validation failed - missing email');
       toast.error("Please enter your email");
       return;
     }
     if (!formData.phone.trim()) {
-      console.log('❌ DEBUG: Validation failed - missing phone');
       toast.error("Please enter your phone number");
       return;
     }
     if (!formData.address.trim()) {
-      console.log('❌ DEBUG: Validation failed - missing address');
       toast.error("Please enter your delivery address");
       return;
     }
     if (!formData.city.trim()) {
-      console.log('❌ DEBUG: Validation failed - missing city');
       toast.error("Please enter your city");
       return;
     }
     if (!formData.postcode.trim()) {
-      console.log('❌ DEBUG: Validation failed - missing postcode');
       toast.error("Please enter your postcode");
       return;
     }
 
     if (!agreedToTerms) {
-      console.log('❌ DEBUG: Validation failed - terms not agreed');
       toast.error("Please agree to the terms before proceeding");
       return;
     }
-
-    console.log('✅ DEBUG: Form validation passed');
-    
     if (paymentMethod === "Stripe") {
-      console.log('🔧 DEBUG: Stripe payment method selected');
-      console.log('🔧 DEBUG: Stripe instance exists:', !!stripe);
-      console.log('🔧 DEBUG: Elements instance exists:', !!elements);
-      
       if (!stripe || !elements) {
-        console.log('❌ DEBUG: Stripe or Elements not loaded');
         toast.error("Stripe not loaded. Please try again.");
         return;
       }
     }
 
-    console.log('✅ DEBUG: Starting payment processing...');
     setIsSubmitting(true);
 
     try {
       if (paymentMethod === "Stripe") {
-        console.log('🔧 DEBUG: Processing Stripe payment...');
-        
         const cardElement = elements!.getElement(CardElement);
-        console.log('🔧 DEBUG: Card element retrieved:', !!cardElement);
         
         if (!cardElement) {
-          console.log('❌ DEBUG: Card element not found');
           toast.error("Card element not found");
           return;
         }
@@ -210,8 +148,6 @@ function CheckoutFormContent() {
         toast.info("Processing payment...", { description: "Please wait" });
 
         try {
-          console.log('🔧 DEBUG: Attempting to create payment intent...');
-          
           // Check if backend server is running
           let clientSecret;
           try {
@@ -223,13 +159,13 @@ function CheckoutFormContent() {
                 customer_email: formData.email,
                 order_items: items.length.toString(),
                 delivery_fee: deliveryFee.toString(),
+                discount_amount: (appliedCoupon?.discount_amount || 0).toString(),
+                coupon_code: appliedCoupon?.code || 'none',
                 allergies: formData.allergies || 'None',
               },
             };
             
-            console.log('🔧 DEBUG: Payment intent request data:', JSON.stringify(requestData, null, 2));
             const apiUrl = '/api/create-payment-intent';
-            console.log('🔧 DEBUG: Making request to:', apiUrl);
             
             const response = await fetch(apiUrl, {
               method: 'POST',
@@ -238,26 +174,16 @@ function CheckoutFormContent() {
               },
               body: JSON.stringify(requestData),
             });
-
-            console.log('🔧 DEBUG: Backend response status:', response.status);
-            console.log('🔧 DEBUG: Backend response ok:', response.ok);
             
             if (!response.ok) {
               const errorText = await response.text();
-              console.log('❌ DEBUG: Backend error response:', errorText);
               throw new Error(`Backend server error: ${response.status} - ${errorText}`);
             }
 
             const data = await response.json();
-            console.log('🔧 DEBUG: Backend response data:', JSON.stringify(data, null, 2));
-            
             clientSecret = data.clientSecret;
-            console.log('🔧 DEBUG: Client secret received:', !!clientSecret);
             
           } catch (serverError) {
-            console.log('❌ DEBUG: Backend server error:', serverError.message);
-            console.log('🔧 DEBUG: Falling back to direct payment method creation...');
-            
             // Fallback: Create payment method without backend
             toast.warning("Backend server not running. Using direct payment method.");
             
@@ -277,30 +203,19 @@ function CheckoutFormContent() {
               },
             };
             
-            console.log('🔧 DEBUG: Creating payment method with billing details:', {
-              name: formData.fullName,
-              email: formData.email,
-              phone: formData.phone,
-              address: formData.address
-            });
-            
             const { error, paymentMethod } = await stripe!.createPaymentMethod(paymentMethodData);
 
             if (error) {
-              console.log('❌ DEBUG: Payment method creation failed:', error);
               toast.error(error.message || "Payment method creation failed");
               return;
             }
 
-            console.log('✅ DEBUG: Payment method created successfully:', paymentMethod?.id);
             toast.success("Payment method created successfully!");
             // Skip to order processing
           }
 
           // If we have clientSecret, confirm payment
           if (clientSecret) {
-            console.log('🔧 DEBUG: Confirming payment with client secret...');
-            
             const confirmData = {
               payment_method: {
                 card: cardElement,
@@ -318,28 +233,16 @@ function CheckoutFormContent() {
               },
             };
             
-            console.log('🔧 DEBUG: Payment confirmation with billing details:', {
-              name: formData.fullName,
-              email: formData.email
-            });
-            
             const { error: confirmError, paymentIntent } = await stripe!.confirmCardPayment(clientSecret, confirmData);
 
             if (confirmError) {
-              console.log('❌ DEBUG: Payment confirmation failed:', confirmError);
               toast.error(confirmError.message || "Payment failed");
               return;
             }
 
-            console.log('✅ DEBUG: Payment confirmed successfully:', paymentIntent?.id);
-            console.log('🔧 DEBUG: Payment intent status:', paymentIntent?.status);
             toast.success("Payment successful!");
           }
         } catch (error) {
-          console.error('❌ DEBUG: Payment processing error:', error);
-          console.error('❌ DEBUG: Error type:', error.constructor.name);
-          console.error('❌ DEBUG: Error message:', error.message);
-          console.error('❌ DEBUG: Full error object:', error);
           toast.error("Payment processing failed. Please try again.");
           return;
         }
@@ -359,6 +262,8 @@ function CheckoutFormContent() {
           allergies: formData.allergies,
           subtotal_amount: totalAmount,
           delivery_fee: deliveryFee,
+          discount_amount: appliedCoupon?.discount_amount || 0,
+          coupon_code: appliedCoupon?.code || null,
           total_amount: finalTotal,
           payment_method: paymentMethod,
           order_status: 'processing',
@@ -375,11 +280,38 @@ function CheckoutFormContent() {
         
         const { error: dbError } = await supabase.from('orders').insert(orderData);
         if (dbError) {
-          console.error('❌ Database save error:', dbError);
           toast.warning('Order processed but failed to save to database');
         } else {
-          console.log('✅ Order saved to database successfully');
-          
+          // Update coupon usage if coupon was applied
+          if (appliedCoupon) {
+            try {
+              // Get coupon ID and update usage count
+              const { data: couponData } = await supabase
+                .from('coupons')
+                .select('id, used_count')
+                .eq('code', appliedCoupon.code)
+                .single();
+              
+              if (couponData) {
+                // Update coupon usage count
+                await supabase
+                  .from('coupons')
+                  .update({ used_count: couponData.used_count + 1 })
+                  .eq('id', couponData.id);
+                
+                // Record coupon usage with customer email
+                await supabase
+                  .from('coupon_usage')
+                  .insert({
+                    coupon_id: couponData.id,
+                    customer_email: formData.email,
+                    discount_amount: appliedCoupon.discount_amount
+                  });
+              }
+            } catch (couponError) {
+              // Silently handle coupon update errors
+            }
+          }
           // Send email notifications
           try {
             await sendOrderConfirmation(formData.email, {
@@ -393,26 +325,13 @@ function CheckoutFormContent() {
               delivery_address: `${formData.address}, ${formData.city}, ${formData.postcode}`,
               phone: formData.phone
             });
-            console.log('✅ Email notifications sent');
           } catch (emailError) {
-            console.error('❌ Email notification failed:', emailError);
+            // Silently handle email errors
           }
         }
       } catch (dbError) {
-        console.error('❌ Database operation failed:', dbError);
+        // Silently handle database errors
       }
-      
-      console.log('✅ PAYMENT SUCCESSFUL - Order details:', {
-        customer: formData.fullName,
-        email: formData.email,
-        total: finalTotal,
-        subtotal: totalAmount,
-        deliveryFee: deliveryFee,
-        allergies: formData.allergies,
-        items: items.length,
-        paymentMethod
-      });
-
       toast.success("Payment successful!", {
         description: `Paid £${finalTotal.toFixed(2)} via ${paymentMethod}. Order confirmation sent.`,
       });
@@ -683,28 +602,6 @@ function CheckoutFormContent() {
                 </div>
               </div>
 
-              {/* Debug Test Button */}
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="w-full mb-4"
-                onClick={async () => {
-                  console.log('🔧 DEBUG: Testing server connectivity...');
-                  try {
-                    const response = await fetch('http://localhost:3001/health');
-                    const data = await response.json();
-                    console.log('✅ DEBUG: Server health check:', data);
-                    toast.success('Server is running! Check console for details.');
-                  } catch (error) {
-                    console.log('❌ DEBUG: Server connectivity failed:', error);
-                    toast.error('Server not reachable! Check console for details.');
-                  }
-                }}
-              >
-                🔧 Test Server Connection
-              </Button>
-
               {/* Submit */}
               <Button
                 type="submit"
@@ -780,6 +677,12 @@ function CheckoutFormContent() {
                   </span>
                   <span>{postcodeEntered ? `£${deliveryFee.toFixed(2)}` : 'Enter postcode'}</span>
                 </div>
+                {appliedCoupon && (
+                  <div className="flex justify-between text-sm text-green-600">
+                    <span>Discount ({appliedCoupon.code})</span>
+                    <span>-£{appliedCoupon.discount_amount.toFixed(2)}</span>
+                  </div>
+                )}
                 <div className="border-t border-border pt-3 mt-3">
                   <div className="flex justify-between">
                     <span className="font-bold">Total</span>
@@ -788,6 +691,17 @@ function CheckoutFormContent() {
                     </span>
                   </div>
                 </div>
+              </div>
+
+              {/* Coupon Input */}
+              <div className="mb-6">
+                <CouponInput
+                  onCouponApplied={setAppliedCoupon}
+                  onCouponRemoved={() => setAppliedCoupon(null)}
+                  appliedCoupon={appliedCoupon}
+                  subtotal={totalAmount}
+                  customerEmail={formData.email}
+                />
               </div>
 
               <div className="bg-muted rounded-lg p-4 text-center">
@@ -804,8 +718,6 @@ function CheckoutFormContent() {
 }
 
 export function CheckoutForm() {
-  console.log('🔧 DEBUG: CheckoutForm wrapper rendering...');
-  
   // Only show error for actually missing keys, not when they exist
   if (!stripeConfig.publishableKey || stripeConfig.publishableKey === 'your_stripe_publishable_key_here') {
     return (

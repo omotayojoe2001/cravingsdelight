@@ -2,14 +2,23 @@ import { motion } from "framer-motion";
 import { MenuCard } from "./MenuCard";
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
-import { Search, Utensils, ChefHat, Soup, Salad, Star } from "lucide-react";
+import { Search, Utensils, ChefHat, Soup, Salad, Star, Fish, Wheat, Apple, Coffee, Beef, Sandwich } from "lucide-react";
 import { useProducts } from "@/hooks/useProducts";
 
 const categories = [
   { id: "all", label: "All" },
   { id: "rice", label: "Rice Dishes" },
-  { id: "soup", label: "Soups & Stews" },
+  { id: "proteins", label: "Proteins" },
+  { id: "vegetables", label: "Vegetables" },
+  { id: "soup", label: "Soups" },
   { id: "sides", label: "Sides" },
+  { id: "appetizers", label: "Appetizers" },
+  { id: "desserts", label: "Desserts" },
+  { id: "beverages", label: "Beverages" },
+  { id: "seafood", label: "Seafood" },
+  { id: "pasta", label: "Pasta" },
+  { id: "salads", label: "Salads" },
+  { id: "grains", label: "Grains" },
   { id: "special", label: "Specials" },
 ];
 
@@ -89,14 +98,23 @@ export function MenuGrid() {
               </div>
               
               {/* Hexagonal Category Grid */}
-              <div className="grid grid-cols-5 md:flex md:flex-wrap md:justify-center gap-3 md:gap-6">
+              <div className="grid grid-cols-7 md:flex md:flex-wrap md:justify-center gap-2 md:gap-4">
                 {categories.map((cat, index) => {
                   const isActive = activeCategory === cat.id;
                   const categoryIcons = {
                     all: Utensils,
                     rice: ChefHat,
+                    proteins: Beef,
+                    vegetables: Apple,
                     soup: Soup,
                     sides: Salad,
+                    appetizers: Sandwich,
+                    desserts: Star,
+                    beverages: Coffee,
+                    seafood: Fish,
+                    pasta: Wheat,
+                    salads: Salad,
+                    grains: Wheat,
                     special: Star
                   };
                   const IconComponent = categoryIcons[cat.id as keyof typeof categoryIcons];

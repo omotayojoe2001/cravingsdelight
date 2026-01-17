@@ -34,7 +34,6 @@ export default function Reviews() {
   }, []);
 
   async function fetchReviews() {
-    console.log('Fetching reviews...');
     setLoading(true);
     let query = supabase.from('reviews').select('*').order('submitted_at', { ascending: false });
     
@@ -43,9 +42,8 @@ export default function Reviews() {
     
     const { data, error } = await query;
     if (error) {
-      console.error('❌ FETCH REVIEWS ERROR:', error);
+      toast.error('Failed to load reviews');
     } else {
-      console.log('✅ REVIEWS FETCHED:', data?.length || 0, 'reviews');
       setReviews(data || []);
     }
     setLoading(false);
@@ -77,7 +75,7 @@ export default function Reviews() {
 
   const handleBulkDelete = async () => {
     if (selectedReviews.length === 0) return;
-    if (!confirm(`Delete ${selectedReviews.length} selected reviews? This action cannot be undone.`)) return;
+    if (!confirm(`Are you sure you want to delete ${selectedReviews.length} selected reviews?\n\nThis will permanently remove all review data including customer feedback and ratings. This action cannot be undone.`)) return;
     
     setDeleting(true);
     const { error } = await supabase.from('reviews').delete().in('id', selectedReviews);
@@ -93,7 +91,7 @@ export default function Reviews() {
   };
 
   const handleDeleteSingle = async (reviewId: string) => {
-    if (!confirm('Delete this review? This action cannot be undone.')) return;
+    if (!confirm('Are you sure you want to delete this review?\n\nThis will permanently remove this customer feedback and rating. This action cannot be undone.')) return;
     
     const { error } = await supabase.from('reviews').delete().eq('id', reviewId);
     if (error) {
