@@ -25,7 +25,7 @@
         max-width: 600px;
       }
       .logo {
-        font-size: 4rem;
+        font-size: 3rem;
         margin-bottom: 1rem;
         animation: pulse 2s infinite;
       }
@@ -39,30 +39,31 @@
         text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
       }
       .subtitle {
-        font-size: 1.2rem;
-        margin-bottom: 3rem;
+        font-size: 1.1rem;
+        margin-bottom: 2rem;
         opacity: 0.9;
       }
       .countdown {
         display: flex;
         justify-content: center;
-        gap: 2rem;
-        margin-bottom: 3rem;
+        gap: 1rem;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
       }
       .time-box {
         background: rgba(255, 255, 255, 0.2);
-        padding: 1.5rem;
+        padding: 1rem 1.5rem;
         border-radius: 15px;
         backdrop-filter: blur(10px);
-        min-width: 100px;
+        min-width: 80px;
       }
       .time-value {
-        font-size: 3rem;
+        font-size: 2.5rem;
         font-weight: bold;
         display: block;
       }
       .time-label {
-        font-size: 0.9rem;
+        font-size: 0.8rem;
         opacity: 0.8;
         text-transform: uppercase;
         margin-top: 0.5rem;
@@ -73,18 +74,30 @@
         line-height: 1.6;
       }
       @media (max-width: 600px) {
-        .countdown {
-          gap: 1rem;
-        }
-        .time-box {
-          padding: 1rem;
-          min-width: 70px;
-        }
-        .time-value {
-          font-size: 2rem;
+        .logo {
+          font-size: 2.5rem;
         }
         h1 {
-          font-size: 2rem;
+          font-size: 1.8rem;
+        }
+        .subtitle {
+          font-size: 1rem;
+        }
+        .countdown {
+          gap: 0.5rem;
+        }
+        .time-box {
+          padding: 0.8rem 1rem;
+          min-width: 65px;
+        }
+        .time-value {
+          font-size: 1.8rem;
+        }
+        .time-label {
+          font-size: 0.7rem;
+        }
+        .message {
+          font-size: 0.95rem;
         }
       }
     </style>
